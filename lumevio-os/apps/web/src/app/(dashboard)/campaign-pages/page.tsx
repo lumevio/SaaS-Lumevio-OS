@@ -50,8 +50,76 @@ type CreatePageResponse = {
   page: CampaignPageItem;
 };
 
+type BuilderPresetKey =
+  | "landing"
+  | "contest"
+  | "coupon"
+  | "quiz"
+  | "lead_form";
+
+const PRESETS: Record<
+  BuilderPresetKey,
+  {
+    label: string;
+    templateType: string;
+    heroTitle: string;
+    heroDescription: string;
+    ctaLabel: string;
+    formTitle: string;
+  }
+> = {
+  landing: {
+    label: "Landing produktowy",
+    templateType: "landing",
+    heroTitle: "Poznaj ofertę i sprawdź więcej",
+    heroDescription:
+      "Nowoczesna kampania produktowa LUMEVIO zwiększająca zaangażowanie i konwersję offline.",
+    ctaLabel: "Sprawdź więcej",
+    formTitle: "Zostaw kontakt",
+  },
+  contest: {
+    label: "Konkurs",
+    templateType: "contest",
+    heroTitle: "Weź udział w konkursie",
+    heroDescription:
+      "Zeskanuj, dołącz do akcji i wygraj nagrody w interaktywnej kampanii marki.",
+    ctaLabel: "Dołącz do konkursu",
+    formTitle: "Formularz konkursowy",
+  },
+  coupon: {
+    label: "Kupon / rabat",
+    templateType: "coupon",
+    heroTitle: "Odbierz swój rabat",
+    heroDescription:
+      "Aktywuj kupon promocyjny i skorzystaj z oferty przygotowanej dla klientów w sklepie.",
+    ctaLabel: "Odbierz kupon",
+    formTitle: "Aktywuj rabat",
+  },
+  quiz: {
+    label: "Quiz / zabawa",
+    templateType: "quiz",
+    heroTitle: "Rozwiąż quiz i sprawdź wynik",
+    heroDescription:
+      "Interaktywny format kampanii, który angażuje klientów i buduje zapamiętywalność marki.",
+    ctaLabel: "Start quizu",
+    formTitle: "Zapisz wynik / kontakt",
+  },
+  lead_form: {
+    label: "Lead form",
+    templateType: "lead_form",
+    heroTitle: "Zostaw kontakt i odbierz ofertę",
+    heroDescription:
+      "Prosty format do zbierania leadów, zapisów i zainteresowania kampanią.",
+    ctaLabel: "Zostaw kontakt",
+    formTitle: "Formularz kontaktowy",
+  },
+};
+
 export default function CampaignPagesPage() {
   const { isPlatformAdmin } = useAuth();
+
+  const [builderPreset, setBuilderPreset] =
+    useState<BuilderPresetKey>("landing");
 
   const [pageMode, setPageMode] = useState("hosted");
   const [externalUrl, setExternalUrl] = useState("");
@@ -67,11 +135,13 @@ export default function CampaignPagesPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [templateType, setTemplateType] = useState("landing");
-  const [heroTitle, setHeroTitle] = useState("");
-  const [heroDescription, setHeroDescription] = useState("");
-  const [ctaLabel, setCtaLabel] = useState("");
+  const [heroTitle, setHeroTitle] = useState(PRESETS.landing.heroTitle);
+  const [heroDescription, setHeroDescription] = useState(
+    PRESETS.landing.heroDescription
+  );
+  const [ctaLabel, setCtaLabel] = useState(PRESETS.landing.ctaLabel);
   const [ctaUrl, setCtaUrl] = useState("");
-  const [formTitle, setFormTitle] = useState("");
+  const [formTitle, setFormTitle] = useState(PRESETS.landing.formTitle);
   const [lastPublicUrl, setLastPublicUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,10 +185,20 @@ export default function CampaignPagesPage() {
 
   function getPagePublicUrl(page: CampaignPageItem) {
     if (page.pageMode === "external_redirect") {
-      return `http://localhost:3001/api/public/page/${page.slug}`;
+      return `http://127.0.0.1:3001/api/public/page/${page.slug}`;
     }
 
-    return `http://localhost:3002/${page.slug}`;
+    return `http://127.0.0.1:3002/${page.slug}`;
+  }
+
+  function applyPreset(presetKey: BuilderPresetKey) {
+    const preset = PRESETS[presetKey];
+    setBuilderPreset(presetKey);
+    setTemplateType(preset.templateType);
+    setHeroTitle(preset.heroTitle);
+    setHeroDescription(preset.heroDescription);
+    setCtaLabel(preset.ctaLabel);
+    setFormTitle(preset.formTitle);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -153,6 +233,7 @@ export default function CampaignPagesPage() {
               ? externalUrl.trim() || undefined
               : undefined,
           jsonConfig: {
+            builderPreset,
             heroTitle:
               pageMode === "hosted" ? heroTitle.trim() || undefined : undefined,
             heroDescription:
@@ -176,14 +257,10 @@ export default function CampaignPagesPage() {
       setCampaignId("");
       setTitle("");
       setSlug("");
-      setTemplateType("landing");
       setPageMode("hosted");
       setExternalUrl("");
-      setHeroTitle("");
-      setHeroDescription("");
-      setCtaLabel("");
+      applyPreset("landing");
       setCtaUrl("");
-      setFormTitle("");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Nie udało się utworzyć strony"
@@ -226,7 +303,7 @@ export default function CampaignPagesPage() {
 
       {isPlatformAdmin ? (
         <section style={styles.card}>
-          <h2 style={styles.sectionTitle}>Dodaj stronę kampanii</h2>
+          <h2 style={styles.sectionTitle}>Builder kampanii 2.0</h2>
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.grid}>
@@ -256,6 +333,19 @@ export default function CampaignPagesPage() {
                 {filteredCampaigns.map((campaign) => (
                   <option key={campaign.id} value={campaign.id}>
                     {campaign.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={builderPreset}
+                onChange={(e) => applyPreset(e.target.value as BuilderPresetKey)}
+                style={styles.input}
+                disabled={pageMode !== "hosted"}
+              >
+                {Object.entries(PRESETS).map(([key, preset]) => (
+                  <option key={key} value={key}>
+                    {preset.label}
                   </option>
                 ))}
               </select>
@@ -295,6 +385,7 @@ export default function CampaignPagesPage() {
                 <option value="contest">Contest</option>
                 <option value="coupon">Coupon</option>
                 <option value="quiz">Quiz</option>
+                <option value="lead_form">Lead Form</option>
               </select>
 
               <input
@@ -454,9 +545,7 @@ export default function CampaignPagesPage() {
 
                     <div>
                       <span style={styles.label}>External URL</span>
-                      <div style={styles.value}>
-                        {page.externalUrl || "—"}
-                      </div>
+                      <div style={styles.value}>{page.externalUrl || "—"}</div>
                     </div>
                   </div>
 

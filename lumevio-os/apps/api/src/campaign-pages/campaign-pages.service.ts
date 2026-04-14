@@ -33,9 +33,7 @@ export class CampaignPagesService {
         select: { id: true },
       });
 
-      if (!exists) {
-        return slug;
-      }
+      if (!exists) return slug;
 
       counter += 1;
       slug = `${baseSlug}-${counter}`;
@@ -47,10 +45,10 @@ export class CampaignPagesService {
     pageMode?: string | null;
   }) {
     if (page.pageMode === "external_redirect") {
-      return `http://localhost:3001/api/public/page/${page.slug}`;
+      return `http://127.0.0.1:3001/api/public/page/${page.slug}`;
     }
 
-    return `http://localhost:3002/${page.slug}`;
+    return `http://127.0.0.1:3002/${page.slug}`;
   }
 
   async findAll(user?: any) {
@@ -152,10 +150,7 @@ export class CampaignPagesService {
 
     const pageMode = dto.pageMode?.trim() || "hosted";
 
-    if (
-      pageMode !== "hosted" &&
-      pageMode !== "external_redirect"
-    ) {
+    if (!["hosted", "external_redirect"].includes(pageMode)) {
       throw new BadRequestException("Nieprawidłowy pageMode");
     }
 
@@ -189,7 +184,8 @@ export class CampaignPagesService {
       : this.slugify(`${campaign.name}-${dto.title}`);
 
     const slug = await this.ensureUniqueSlug(baseSlug);
-    const jsonConfig = (dto.jsonConfig ?? {}) as Prisma.InputJsonValue;
+
+    const safeJsonConfig = (dto.jsonConfig ?? {}) as Prisma.InputJsonValue;
 
     const page = await this.prisma.campaignPage.create({
       data: {
@@ -205,7 +201,7 @@ export class CampaignPagesService {
             ? dto.externalUrl?.trim() || null
             : null,
         customDomain: dto.customDomain?.trim() || null,
-        jsonConfig,
+        jsonConfig: safeJsonConfig,
       },
       select: {
         id: true,
@@ -245,11 +241,7 @@ export class CampaignPagesService {
   async publish(id: string) {
     const page = await this.prisma.campaignPage.findUnique({
       where: { id },
-      select: {
-        id: true,
-        slug: true,
-        pageMode: true,
-      },
+      select: { id: true, slug: true, pageMode: true },
     });
 
     if (!page) {

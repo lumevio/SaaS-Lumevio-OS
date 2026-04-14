@@ -299,3 +299,24 @@ model AuditLog {
   @@index([entityType])
   @@index([createdAt])
 }
+
+model PlatformSetting {
+  id                      String   @id @default(cuid())
+  platformName            String   @default("LUMEVIO OS")
+  supportEmail            String?  @default("admin@lumevio.pl")
+  appBaseUrl              String?  @default("http://127.0.0.1:3000")
+  apiBaseUrl              String?  @default("http://127.0.0.1:3001")
+  goBaseUrl               String?  @default("http://127.0.0.1:3002")
+  defaultCampaignPreset   String   @default("landing")
+  defaultPageMode         String   @default("hosted")
+  defaultUtmSource        String?  @default("lumevio")
+  defaultUtmMedium        String?  @default("nfc")
+  trackIp                 Boolean  @default(true)
+  trackUserAgent          Boolean  @default(true)
+  trackReferer            Boolean  @default(true)
+  allowCustomDomains      Boolean  @default(false)
+  maintenanceMode         Boolean  @default(false)
+  primaryColor            String?  @default("#6d7cff")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}

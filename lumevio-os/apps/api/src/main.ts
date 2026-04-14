@@ -1,5 +1,5 @@
-import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
@@ -7,28 +7,26 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      "http://localhost:3000",
       "http://127.0.0.1:3000",
-      "https://app.lumevio.pl",
-      "https://www.app.lumevio.pl",
+      "http://localhost:3000",
+      "http://127.0.0.1:3002",
+      "http://localhost:3002",
     ],
     credentials: true,
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   });
+
+  app.setGlobalPrefix("api");
 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
+      forbidNonWhitelisted: false,
     })
   );
 
-  app.setGlobalPrefix("api");
-
-  const port = Number(process.env.PORT || 3001);
-  await app.listen(port, "0.0.0.0");
-
-  console.log(`API running on port ${port}`);
+  await app.listen(3001);
+  console.log("API running on port 3001");
 }
-bootstrap();
+
+void bootstrap();
