@@ -1,47 +1,49 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
-import { Public } from "../auth/public.decorator";
-import { EventsService } from "./events.service";
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PrismaService } from '../prisma/prisma.service';
 
-@Controller("events")
+@Controller('events')
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  @Get()
-  findAll(@Req() req: any) {
-    return this.eventsService.findAll(req.user);
-  }
-
-  @Get("summary")
-  getSummary(
-    @Req() req: any,
-    @Query("campaignId") campaignId?: string,
-    @Query("organizationId") organizationId?: string
-  ) {
-    return this.eventsService.getSummary(req.user, {
-      campaignId,
-      organizationId,
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  async createInternalEvent(@Body() body: any) {
+    const event = await this.prisma.event.create({
+      data: {
+        type: body.type,
+        organizationId: body.organizationId,
+        campaignId: body.campaignId,
+        redirectLinkId: body.redirectLinkId,
+        nfcTagId: body.nfcTagId,
+        sessionId: body.sessionId,
+        payload: body.payload,
+      },
     });
+
+    return {
+      success: true,
+      eventId: event.id,
+    };
   }
 
-  @Get("summary/campaign/:campaignId")
-  getCampaignSummary(@Req() req: any, @Param("campaignId") campaignId: string) {
-    return this.eventsService.getCampaignSummary(req.user, campaignId);
-  }
+  @Post('public')
+  async createPublicEvent(@Body() body: any) {
+    const event = await this.prisma.event.create({
+      data: {
+        type: body.type,
+        organizationId: body.organizationId,
+        campaignId: body.campaignId,
+        redirectLinkId: body.redirectLinkId,
+        nfcTagId: body.nfcTagId,
+        sessionId: body.sessionId,
+        payload: body.payload,
+      },
+    });
 
-  @Public()
-  @Post("track")
-  track(
-    @Body()
-    dto: {
-      type: string;
-      organizationId: string;
-      campaignId?: string;
-      redirectLinkId?: string;
-      nfcTagId?: string;
-      sessionId?: string;
-      payload?: Record<string, unknown>;
-    }
-  ) {
-    return this.eventsService.track(dto);
+    return {
+      success: true,
+      eventId: event.id,
+    };
   }
 }

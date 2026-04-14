@@ -60,16 +60,28 @@ export default function PublicCampaignPage({
   const [couponRevealed, setCouponRevealed] = useState(false);
   const [quizAnswer, setQuizAnswer] = useState<string | null>(null);
 
-  function getSessionIdFromUrl() {
+  function getQueryParam(key: string) {
     if (typeof window === "undefined") return "";
     const url = new URL(window.location.href);
-    return url.searchParams.get("session_id") || "";
+    return url.searchParams.get(key) || "";
+  }
+
+  function getSessionIdFromUrl() {
+    return getQueryParam("session_id");
+  }
+
+  function getNfcTagIdFromUrl() {
+    return getQueryParam("nfc_tag_id");
   }
 
   function resolveSessionId() {
     const fromUrl = getSessionIdFromUrl();
     if (fromUrl) return fromUrl;
     return getOrCreateSessionId();
+  }
+
+  function resolveNfcTagId() {
+    return getNfcTagIdFromUrl() || undefined;
   }
 
   useEffect(() => {
@@ -84,14 +96,24 @@ export default function PublicCampaignPage({
         const result = await getCampaignPage(resolved.slug);
 
         if (!active) return;
+
+        if (result.pageMode === "external_redirect" && result.externalUrl) {
+          if (typeof window !== "undefined") {
+            window.location.href = result.externalUrl;
+          }
+          return;
+        }
+
         setData(result);
 
         const sessionId = resolveSessionId();
+        const nfcTagId = resolveNfcTagId();
 
         await trackEvent({
           type: "landing_view",
           organizationId: result.organization.id,
           campaignId: result.campaign.id,
+          nfcTagId,
           sessionId,
           payload: {
             slug: result.slug,
@@ -105,7 +127,7 @@ export default function PublicCampaignPage({
       } catch (err) {
         if (!active) return;
         setError(
-          err instanceof Error ? err.message : "Błąd ładowania strony kampanii"
+          err instanceof Error ? err.message : "Błąd ładowania strony kampanii",
         );
       } finally {
         if (active) setLoading(false);
@@ -126,11 +148,13 @@ export default function PublicCampaignPage({
 
     try {
       const sessionId = resolveSessionId();
+      const nfcTagId = resolveNfcTagId();
 
       await trackEvent({
         type: "cta_click",
         organizationId: data.organization.id,
         campaignId: data.campaign.id,
+        nfcTagId,
         sessionId,
         payload: {
           slug: data.slug,
@@ -154,11 +178,13 @@ export default function PublicCampaignPage({
 
     try {
       const sessionId = resolveSessionId();
+      const nfcTagId = resolveNfcTagId();
 
       await trackEvent({
         type: "form_submit",
         organizationId: data.organization.id,
         campaignId: data.campaign.id,
+        nfcTagId,
         sessionId,
         payload: {
           slug: data.slug,
@@ -181,11 +207,13 @@ export default function PublicCampaignPage({
 
     try {
       const sessionId = resolveSessionId();
+      const nfcTagId = resolveNfcTagId();
 
       await trackEvent({
         type: "cta_click",
         organizationId: data.organization.id,
         campaignId: data.campaign.id,
+        nfcTagId,
         sessionId,
         payload: {
           slug: data.slug,
@@ -205,11 +233,13 @@ export default function PublicCampaignPage({
 
     try {
       const sessionId = resolveSessionId();
+      const nfcTagId = resolveNfcTagId();
 
       await trackEvent({
         type: "cta_click",
         organizationId: data.organization.id,
         campaignId: data.campaign.id,
+        nfcTagId,
         sessionId,
         payload: {
           slug: data.slug,

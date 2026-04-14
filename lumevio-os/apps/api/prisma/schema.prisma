@@ -18,14 +18,14 @@ enum RoleKey {
 }
 
 model User {
-  id                String                 @id @default(cuid())
-  email             String                 @unique
-  passwordHash      String
-  firstName         String?
-  lastName          String?
-  isPlatformAdmin   Boolean                @default(false)
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  isPlatformAdmin Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   organizationRoles UserOrganizationRole[]
   auditLogs         AuditLog[]
@@ -34,28 +34,28 @@ model User {
 }
 
 model Role {
-  id                String                 @id @default(cuid())
-  key               RoleKey                @unique
-  name              String
-  createdAt         DateTime               @default(now())
+  id        String   @id @default(cuid())
+  key       RoleKey  @unique
+  name      String
+  createdAt DateTime @default(now())
 
   organizationRoles UserOrganizationRole[]
 }
 
 model Organization {
-  id            String                 @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String
-  slug          String                 @unique
+  slug          String    @unique
   industry      String?
-  plan          String                 @default("STARTER")
-  status        String                 @default("ACTIVE")
-  storesCount   Int                    @default(0)
+  plan          String    @default("STARTER")
+  status        String    @default("ACTIVE")
+  storesCount   Int       @default(0)
   rootFolderId  String?
   rootFolderUrl String?
-  syncEnabled   Boolean                @default(true)
+  syncEnabled   Boolean   @default(true)
   lastSyncAt    DateTime?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   stores        Store[]
   campaigns     Campaign[]
@@ -73,15 +73,15 @@ model Organization {
 }
 
 model UserOrganizationRole {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   userId         String
   organizationId String
   roleId         String
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
 
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role           Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId, roleId])
   @@index([userId])
@@ -90,47 +90,49 @@ model UserOrganizationRole {
 }
 
 model Store {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   organizationId String
   name           String
-  city           String?
+  code           String?  @unique
   address        String?
+  city           String?
+  country        String?
   zone           String?
-  healthScore    Int?
-  status         String       @default("LIVE")
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaigns      Campaign[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaigns    Campaign[]
+  nfcTags      NfcTag[]
 
   @@index([organizationId])
-  @@index([name])
-  @@index([status])
+  @@index([code])
+  @@index([city])
 }
 
 model Campaign {
-  id             String         @id @default(cuid())
+  id             String   @id @default(cuid())
   organizationId String
   storeId        String?
   name           String
-  slug           String         @unique
+  slug           String   @unique
   type           String
   objective      String?
-  status         String         @default("DRAFT")
-  interactions   Int            @default(0)
-  leads          Int            @default(0)
-  conversionRate Float          @default(0)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  status         String   @default("DRAFT")
+  interactions   Int      @default(0)
+  leads          Int      @default(0)
+  conversionRate Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  store          Store?         @relation(fields: [storeId], references: [id], onDelete: SetNull)
-  documents      Document[]
-  redirectLinks  RedirectLink[]
-  events         Event[]
-  nfcTags        NfcTag[]
-  pages          CampaignPage[]
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store         Store?         @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  documents     Document[]
+  redirectLinks RedirectLink[]
+  events        Event[]
+  nfcTags       NfcTag[]
+  pages         CampaignPage[]
 
   @@index([organizationId])
   @@index([storeId])
@@ -139,18 +141,18 @@ model Campaign {
 }
 
 model Document {
-  id             String        @id @default(cuid())
+  id             String   @id @default(cuid())
   organizationId String
   campaignId     String?
   name           String
   documentType   String
   fileUrl        String?
   driveFileId    String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign     Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([campaignId])
@@ -158,9 +160,9 @@ model Document {
 }
 
 model DriveFile {
-  id                String       @id @default(cuid())
+  id                String    @id @default(cuid())
   organizationId    String
-  driveFileId       String       @unique
+  driveFileId       String    @unique
   folderId          String?
   name              String
   mimeType          String?
@@ -168,12 +170,12 @@ model DriveFile {
   size              Int?
   modifiedTime      DateTime?
   lastSyncedAt      DateTime?
-  isFolder          Boolean      @default(false)
+  isFolder          Boolean   @default(false)
   parentDriveFileId String?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([driveFileId])
@@ -181,23 +183,23 @@ model DriveFile {
 }
 
 model RedirectLink {
-  id             String       @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
   campaignId     String?
-  slug           String       @unique
+  slug           String    @unique
   destinationUrl String
   fallbackUrl    String?
   title          String?
-  isActive       Boolean      @default(true)
+  isActive       Boolean   @default(true)
   validFrom      DateTime?
   validTo        DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign       Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  events         Event[]
-  nfcTags        NfcTag[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign     Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  events       Event[]
+  nfcTags      NfcTag[]
 
   @@index([organizationId])
   @@index([campaignId])
@@ -206,24 +208,28 @@ model RedirectLink {
 }
 
 model NfcTag {
-  id             String        @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
+  storeId        String?
   campaignId     String?
   redirectLinkId String?
-  uid            String        @unique
+  uid            String    @unique
   serialNumber   String?
   tagType        String?
   label          String?
-  status         String        @default("ACTIVE")
+  status         String    @default("ACTIVE")
   assignedAt     DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  redirectLink   RedirectLink? @relation(fields: [redirectLinkId], references: [id], onDelete: SetNull)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store        Store?        @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  redirectLink RedirectLink? @relation(fields: [redirectLinkId], references: [id], onDelete: SetNull)
+  events       Event[]
 
   @@index([organizationId])
+  @@index([storeId])
   @@index([campaignId])
   @@index([redirectLinkId])
   @@index([uid])
@@ -231,23 +237,23 @@ model NfcTag {
 }
 
 model CampaignPage {
-  id             String       @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
   campaignId     String
-  slug           String       @unique
+  slug           String    @unique
   title          String
-  templateType   String       @default("landing")
-  status         String       @default("draft")
-  pageMode       String       @default("hosted")
+  templateType   String    @default("landing")
+  status         String    @default("draft")
+  pageMode       String    @default("hosted")
   externalUrl    String?
   customDomain   String?
   jsonConfig     Json?
   publishedAt    DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign       Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([campaignId])
@@ -257,7 +263,7 @@ model CampaignPage {
 }
 
 model Event {
-  id             String        @id @default(cuid())
+  id             String   @id @default(cuid())
   type           String
   organizationId String
   campaignId     String?
@@ -265,11 +271,12 @@ model Event {
   nfcTagId       String?
   sessionId      String?
   payload        Json?
-  createdAt      DateTime      @default(now())
+  createdAt      DateTime @default(now())
 
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  redirectLink   RedirectLink? @relation(fields: [redirectLinkId], references: [id], onDelete: SetNull)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  redirectLink RedirectLink? @relation(fields: [redirectLinkId], references: [id], onDelete: SetNull)
+  nfcTag       NfcTag?       @relation(fields: [nfcTagId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([campaignId])
@@ -281,17 +288,17 @@ model Event {
 }
 
 model AuditLog {
-  id             String        @id @default(cuid())
+  id             String   @id @default(cuid())
   userId         String?
   organizationId String?
   action         String
   entityType     String
   entityId       String?
   payloadJson    Json?
-  createdAt      DateTime      @default(now())
+  createdAt      DateTime @default(now())
 
-  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([organizationId])
@@ -301,28 +308,28 @@ model AuditLog {
 }
 
 model PlatformSetting {
-  id                      String   @id @default(cuid())
-  platformName            String   @default("LUMEVIO OS")
-  supportEmail            String?  @default("admin@lumevio.pl")
-  appBaseUrl              String?  @default("http://127.0.0.1:3000")
-  apiBaseUrl              String?  @default("http://127.0.0.1:3001")
-  goBaseUrl               String?  @default("http://127.0.0.1:3002")
-  defaultCampaignPreset   String   @default("landing")
-  defaultPageMode         String   @default("hosted")
-  defaultUtmSource        String?  @default("lumevio")
-  defaultUtmMedium        String?  @default("nfc")
-  trackIp                 Boolean  @default(true)
-  trackUserAgent          Boolean  @default(true)
-  trackReferer            Boolean  @default(true)
-  allowCustomDomains      Boolean  @default(false)
-  maintenanceMode         Boolean  @default(false)
-  primaryColor            String?  @default("#6d7cff")
+  id                    String  @id @default(cuid())
+  platformName          String  @default("LUMEVIO OS")
+  supportEmail          String? @default("admin@lumevio.pl")
+  appBaseUrl            String? @default("http://127.0.0.1:3000")
+  apiBaseUrl            String? @default("http://127.0.0.1:3001")
+  goBaseUrl             String? @default("http://127.0.0.1:3002")
+  defaultCampaignPreset String  @default("landing")
+  defaultPageMode       String  @default("hosted")
+  defaultUtmSource      String? @default("lumevio")
+  defaultUtmMedium      String? @default("nfc")
+  trackIp               Boolean @default(true)
+  trackUserAgent        Boolean @default(true)
+  trackReferer          Boolean @default(true)
+  allowCustomDomains    Boolean @default(false)
+  maintenanceMode       Boolean @default(false)
+  primaryColor          String? @default("#6d7cff")
 
-  googleDriveEnabled       Boolean  @default(false)
+  googleDriveEnabled       Boolean @default(false)
   googleAppsScriptUrl      String?
   googleDriveRootFolderId  String?
   googleDriveRootFolderUrl String?
 
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

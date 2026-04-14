@@ -1,9 +1,13 @@
 import { Module } from "@nestjs/common";
-import { RedirectLinksController } from "./redirect-links.controller";
+import { PrismaModule } from "../prisma/prisma.module";
+import { QrModule } from "../common/qr/qr.module";
+import { RedirectLinksQrController } from "./redirect-links.controller";
+import { RedirectLinksExportController } from "./redirect-links-export.controller";
 import { RedirectLinksService } from "./redirect-links.service";
 
 @Module({
-  controllers: [RedirectLinksController],
+  imports: [PrismaModule, QrModule],
+  controllers: [RedirectLinksQrController, RedirectLinksExportController],
   providers: [RedirectLinksService],
   exports: [RedirectLinksService],
 })

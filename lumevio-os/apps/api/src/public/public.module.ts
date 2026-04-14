@@ -1,12 +1,10 @@
-import { Module } from "@nestjs/common";
-import { PrismaModule } from "../prisma/prisma.module";
-import { EventsModule } from "../events/events.module";
-import { RedirectLinksModule } from "../redirect-links/redirect-links.module";
-import { PublicController } from "./public.controller";
-import { PublicPagesController } from "./public-pages.controller";
+import { Module } from '@nestjs/common';
+import { PublicController } from './public.controller';
+import { RedirectLinksModule } from '../redirect-links/redirect-links.module';
+import { CampaignPagesModule } from '../campaign-pages/campaign-pages.module';
 
 @Module({
-  imports: [PrismaModule, EventsModule, RedirectLinksModule],
-  controllers: [PublicController, PublicPagesController],
+  imports: [RedirectLinksModule, CampaignPagesModule],
+  controllers: [PublicController],
 })
 export class PublicModule {}

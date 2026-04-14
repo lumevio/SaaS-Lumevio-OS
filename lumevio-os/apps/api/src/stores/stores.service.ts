@@ -1,124 +1,92 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { getAccessibleOrganizationIds } from "../auth/authz.util";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateStoreDto } from './dto/create-store.dto';
+import { UpdateStoreDto } from './dto/update-store.dto';
 
 @Injectable()
 export class StoresService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(user?: any) {
-    if (user?.isPlatformAdmin) {
-      return this.prisma.store.findMany({
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          city: true,
-          address: true,
-          zone: true,
-          status: true,
-          healthScore: true,
-          createdAt: true,
-          organization: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-        },
-      });
-    }
-
-    const orgIds = getAccessibleOrganizationIds(user);
-
+  async findAll() {
     return this.prisma.store.findMany({
-      where: {
-        organizationId: {
-          in: orgIds.length ? orgIds : ["__none__"],
-        },
+      include: {
+        organization: true,
+        campaigns: true,
+        nfcTags: true,
       },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        city: true,
-        address: true,
-        zone: true,
-        status: true,
-        healthScore: true,
-        createdAt: true,
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
   }
 
-  async create(dto: {
-    organizationId: string;
-    name: string;
-    city?: string;
-    address?: string;
-    zone?: string;
-  }) {
-    if (!dto.organizationId || !dto.name?.trim()) {
-      throw new BadRequestException("Brakuje organizationId albo name");
-    }
-
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: dto.organizationId },
-      select: { id: true, storesCount: true },
+  async findOne(id: string) {
+    const item = await this.prisma.store.findUnique({
+      where: { id },
+      include: {
+        organization: true,
+        campaigns: true,
+        nfcTags: true,
+      },
     });
 
-    if (!organization) {
-      throw new BadRequestException("Organizacja nie istnieje");
+    if (!item) {
+      throw new NotFoundException('Store not found');
     }
 
-    const store = await this.prisma.store.create({
+    return item;
+  }
+
+  async create(dto: CreateStoreDto) {
+    return this.prisma.store.create({
       data: {
-        organizationId: dto.organizationId,
-        name: dto.name.trim(),
-        city: dto.city?.trim() || null,
-        address: dto.address?.trim() || null,
-        zone: dto.zone?.trim() || null,
-        status: "LIVE",
-      },
-      select: {
-        id: true,
-        name: true,
-        city: true,
-        address: true,
-        zone: true,
-        status: true,
-        healthScore: true,
-        createdAt: true,
         organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
+          connect: { id: dto.organizationId },
         },
+        name: dto.name,
+        code: dto.code,
+        address: dto.address,
+        city: dto.city,
+        country: dto.country,
+        zone: dto.zone,
+        isActive: dto.isActive ?? true,
+      },
+      include: {
+        organization: true,
       },
     });
+  }
 
-    await this.prisma.organization.update({
-      where: { id: dto.organizationId },
+  async update(id: string, dto: UpdateStoreDto) {
+    await this.findOne(id);
+
+    return this.prisma.store.update({
+      where: { id },
       data: {
-        storesCount: {
-          increment: 1,
-        },
+        name: dto.name,
+        code: dto.code,
+        address: dto.address,
+        city: dto.city,
+        country: dto.country,
+        zone: dto.zone,
+        isActive: dto.isActive,
+        organization: dto.organizationId
+          ? {
+              connect: { id: dto.organizationId },
+            }
+          : undefined,
+      },
+      include: {
+        organization: true,
       },
     });
+  }
 
-    return {
-      success: true,
-      store,
-    };
+  async remove(id: string) {
+    await this.findOne(id);
+
+    return this.prisma.store.delete({
+      where: { id },
+    });
   }
 }

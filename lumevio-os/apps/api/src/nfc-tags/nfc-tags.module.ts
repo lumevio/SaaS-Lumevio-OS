@@ -1,9 +1,13 @@
 import { Module } from "@nestjs/common";
-import { NfcTagsController } from "./nfc-tags.controller";
+import { PrismaModule } from "../prisma/prisma.module";
+import { QrModule } from "../common/qr/qr.module";
+import { NfcTagsQrController } from "./nfc-tags.controller";
+import { NfcTagsExportController } from "./nfc-tags-export.controller";
 import { NfcTagsService } from "./nfc-tags.service";
 
 @Module({
-  controllers: [NfcTagsController],
+  imports: [PrismaModule, QrModule],
+  controllers: [NfcTagsQrController, NfcTagsExportController],
   providers: [NfcTagsService],
   exports: [NfcTagsService],
 })

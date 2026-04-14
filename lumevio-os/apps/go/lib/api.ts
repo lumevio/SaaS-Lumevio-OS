@@ -1,8 +1,8 @@
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
 
 export async function getCampaignPage(slug: string) {
-  const response = await fetch(`${API_URL}/api/campaign-pages/public/${slug}`, {
+  const response = await fetch(`${API_BASE_URL}/public/campaign-pages/${slug}`, {
     cache: "no-store",
   });
 
@@ -13,21 +13,21 @@ export async function getCampaignPage(slug: string) {
   return response.json();
 }
 
-export async function trackEvent(input: {
+export async function trackEvent(payload: {
   type: string;
   organizationId: string;
   campaignId?: string;
   redirectLinkId?: string;
   nfcTagId?: string;
   sessionId?: string;
-  payload?: Record<string, unknown>;
+  payload?: unknown;
 }) {
-  const response = await fetch(`${API_URL}/api/events/track`, {
+  const response = await fetch(`${API_BASE_URL}/events/public`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(input),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

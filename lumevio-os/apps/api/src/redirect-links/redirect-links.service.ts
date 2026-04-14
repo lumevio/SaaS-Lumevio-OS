@@ -1,183 +1,128 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
-import { getAccessibleOrganizationIds } from "../auth/authz.util";
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class RedirectLinksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private slugify(value: string): string {
-    return value
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-  }
+  async findById(id: string) {
+  return this.prisma.redirectLink.findUnique({
+    where: { id },
+  });
+}
 
-  private async ensureUniqueSlug(baseSlug: string): Promise<string> {
-    let slug = baseSlug || `link-${Date.now()}`;
-    let counter = 1;
-
-    while (true) {
-      const exists = await this.prisma.redirectLink.findUnique({
-        where: { slug },
-        select: { id: true },
-      });
-
-      if (!exists) {
-        return slug;
-      }
-
-      counter += 1;
-      slug = `${baseSlug}-${counter}`;
-    }
-  }
-
-  async findAll(user?: any) {
-    const orgIds = getAccessibleOrganizationIds(user);
-
+  async findAll() {
     return this.prisma.redirectLink.findMany({
-      where: user?.isPlatformAdmin
-        ? undefined
-        : {
-            organizationId: {
-              in: orgIds.length ? orgIds : ["__none__"],
-            },
-          },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        slug: true,
-        destinationUrl: true,
-        fallbackUrl: true,
-        title: true,
-        isActive: true,
-        validFrom: true,
-        validTo: true,
-        createdAt: true,
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        campaign: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
+      include: {
+        organization: true,
+        campaign: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
   }
 
-  async create(dto: {
-    organizationId: string;
-    campaignId?: string;
-    title?: string;
-    slug?: string;
-    destinationUrl: string;
-    fallbackUrl?: string;
-  }) {
-    if (!dto.organizationId || !dto.destinationUrl?.trim()) {
-      throw new BadRequestException(
-        "Brakuje organizationId albo destinationUrl"
-      );
-    }
-
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: dto.organizationId },
-      select: { id: true, name: true },
-    });
-
-    if (!organization) {
-      throw new BadRequestException("Organizacja nie istnieje");
-    }
-
-    let campaign = null;
-    if (dto.campaignId) {
-      campaign = await this.prisma.campaign.findUnique({
-        where: { id: dto.campaignId },
-        select: { id: true, organizationId: true, name: true },
-      });
-
-      if (!campaign) {
-        throw new BadRequestException("Kampania nie istnieje");
-      }
-
-      if (campaign.organizationId !== dto.organizationId) {
-        throw new BadRequestException("Kampania nie należy do tej organizacji");
-      }
-    }
-
-    const baseSlug = dto.slug?.trim()
-      ? this.slugify(dto.slug)
-      : this.slugify(
-          `${organization.name}-${campaign?.name || dto.title || "link"}`
-        );
-
-    const slug = await this.ensureUniqueSlug(baseSlug);
-
-    const link = await this.prisma.redirectLink.create({
+  async create(dto: any) {
+    const created = await this.prisma.redirectLink.create({
       data: {
-        organizationId: dto.organizationId,
-        campaignId: dto.campaignId || null,
-        slug,
-        destinationUrl: dto.destinationUrl.trim(),
-        fallbackUrl: dto.fallbackUrl?.trim() || null,
-        title: dto.title?.trim() || null,
-        isActive: true,
+        title: dto.title,
+        slug: dto.slug,
+        destinationUrl: dto.destinationUrl,
+        fallbackUrl: dto.fallbackUrl,
+        isActive: dto.isActive ?? true,
+        organization: dto.organizationId
+          ? {
+              connect: { id: dto.organizationId },
+            }
+          : undefined,
+        campaign: dto.campaignId
+          ? {
+              connect: { id: dto.campaignId },
+            }
+          : undefined,
       },
-      select: {
-        id: true,
-        slug: true,
-        destinationUrl: true,
-        fallbackUrl: true,
-        title: true,
-        isActive: true,
-        createdAt: true,
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        campaign: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
+      include: {
+        organization: true,
+        campaign: true,
       },
     });
 
     return {
       success: true,
-      link,
-      publicUrl: `http://localhost:3001/r/${link.slug}`,
+      publicUrl: `http://localhost:3001/r/${created.slug}`,
+      link: created,
     };
   }
 
-  async resolveBySlug(slug: string) {
-    return this.prisma.redirectLink.findUnique({
-      where: { slug },
-      select: {
-        id: true,
-        slug: true,
-        destinationUrl: true,
-        fallbackUrl: true,
-        isActive: true,
-        organizationId: true,
-        campaignId: true,
+  async update(id: string, dto: any) {
+    const existing = await this.prisma.redirectLink.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Redirect link not found');
+    }
+
+    return this.prisma.redirectLink.update({
+      where: { id },
+      data: {
+        title: dto.title,
+        slug: dto.slug,
+        destinationUrl: dto.destinationUrl,
+        fallbackUrl: dto.fallbackUrl,
+        isActive: dto.isActive,
+        organization: dto.organizationId
+          ? {
+              connect: { id: dto.organizationId },
+            }
+          : undefined,
+        campaign: dto.campaignId
+          ? {
+              connect: { id: dto.campaignId },
+            }
+          : undefined,
+      },
+      include: {
+        organization: true,
+        campaign: true,
       },
     });
+  }
+
+  async remove(id: string) {
+    const existing = await this.prisma.redirectLink.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Redirect link not found');
+    }
+
+    return this.prisma.redirectLink.delete({
+      where: { id },
+    });
+  }
+
+  async resolveBySlug(slug: string) {
+    const link = await this.prisma.redirectLink.findUnique({
+      where: { slug },
+      include: {
+        organization: true,
+        campaign: true,
+      },
+    });
+
+    if (!link) {
+      throw new NotFoundException('Redirect link not found');
+    }
+
+    if (!link.isActive) {
+      throw new NotFoundException('Redirect link is inactive');
+    }
+
+    return link;
   }
 }

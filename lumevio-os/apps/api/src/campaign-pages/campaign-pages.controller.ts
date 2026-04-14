@@ -1,55 +1,60 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
-  Req,
-} from "@nestjs/common";
-import { Roles } from "../auth/roles.decorator";
-import { Public } from "../auth/public.decorator";
-import { CampaignPagesService } from "./campaign-pages.service";
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CampaignPagesService } from './campaign-pages.service';
+import { CreateCampaignPageDto } from './dto/create-campaign-page.dto';
+import { UpdateCampaignPageDto } from './dto/update-campaign-page.dto';
 
-@Controller("campaign-pages")
+@Controller('campaign-pages')
+@UseGuards(JwtAuthGuard)
 export class CampaignPagesController {
-  constructor(
-    private readonly campaignPagesService: CampaignPagesService
-  ) {}
+  constructor(private readonly service: CampaignPagesService) {}
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.campaignPagesService.findAll(req.user);
+  findAll() {
+    return this.service.findAll();
   }
 
-  @Public()
-  @Get("public/:slug")
-  findBySlug(@Param("slug") slug: string) {
-    return this.campaignPagesService.findBySlug(slug);
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
   }
 
-  @Roles("SUPERADMIN")
   @Post()
-  create(
-    @Body()
-    dto: {
-      organizationId: string;
-      campaignId: string;
-      title: string;
-      slug?: string;
-      templateType?: string;
-      pageMode?: string;
-      externalUrl?: string;
-      customDomain?: string;
-      jsonConfig?: Record<string, unknown>;
-    }
-  ) {
-    return this.campaignPagesService.create(dto);
+  create(@Body() dto: CreateCampaignPageDto) {
+    return this.service.create(dto);
   }
 
-  @Roles("SUPERADMIN")
-  @Patch(":id/publish")
-  publish(@Param("id") id: string) {
-    return this.campaignPagesService.publish(id);
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateCampaignPageDto) {
+    return this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.service.remove(id);
+  }
+
+  @Post(':id/publish')
+  publish(@Param('id') id: string) {
+    return this.service.publish(id);
+  }
+
+  @Post(':id/unpublish')
+  unpublish(@Param('id') id: string) {
+    return this.service.unpublish(id);
+  }
+
+  @Post(':id/archive')
+  archive(@Param('id') id: string) {
+    return this.service.archive(id);
   }
 }

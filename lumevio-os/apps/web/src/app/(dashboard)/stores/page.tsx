@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, type CSSProperties } from "react";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -16,14 +16,22 @@ type StoreItem = {
   city?: string | null;
   address?: string | null;
   zone?: string | null;
-  status: string;
+  status?: string | null;
   healthScore?: number | null;
   createdAt: string;
-  organization: {
+  organization?: {
     id: string;
     name: string;
     slug: string;
-  };
+  } | null;
+};
+
+const INITIAL_FORM = {
+  organizationId: "",
+  name: "",
+  city: "",
+  address: "",
+  zone: "",
 };
 
 export default function StoresPage() {
@@ -33,13 +41,35 @@ export default function StoresPage() {
   const [stores, setStores] = useState<StoreItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  const [organizationId, setOrganizationId] = useState("");
-  const [name, setName] = useState("");
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
-  const [zone, setZone] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingStore, setEditingStore] = useState<StoreItem | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [organizationId, setOrganizationId] = useState(INITIAL_FORM.organizationId);
+  const [name, setName] = useState(INITIAL_FORM.name);
+  const [city, setCity] = useState(INITIAL_FORM.city);
+  const [address, setAddress] = useState(INITIAL_FORM.address);
+  const [zone, setZone] = useState(INITIAL_FORM.zone);
+
+  function resetForm() {
+    setEditingStore(null);
+    setOrganizationId(INITIAL_FORM.organizationId);
+    setName(INITIAL_FORM.name);
+    setCity(INITIAL_FORM.city);
+    setAddress(INITIAL_FORM.address);
+    setZone(INITIAL_FORM.zone);
+  }
+
+  function startEdit(store: StoreItem) {
+    setEditingStore(store);
+    setOrganizationId(store.organization?.id ?? "");
+    setName(store.name ?? "");
+    setCity(store.city ?? "");
+    setAddress(store.address ?? "");
+    setZone(store.zone ?? "");
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   async function loadPage() {
     try {
@@ -49,12 +79,12 @@ export default function StoresPage() {
       const storesPromise = apiClient<StoreItem[]>("/stores");
       const orgsPromise = isPlatformAdmin
         ? apiClient<OrganizationOption[]>("/organizations")
-        : Promise.resolve([]);
+        : Promise.resolve<OrganizationOption[]>([]);
 
-      const [storesData, orgs] = await Promise.all([storesPromise, orgsPromise]);
+      const [storesData, orgsData] = await Promise.all([storesPromise, orgsPromise]);
 
       setStores(storesData);
-      setOrganizations(orgs);
+      setOrganizations(orgsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Błąd ładowania danych");
     } finally {
@@ -69,8 +99,13 @@ export default function StoresPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
-    if (!organizationId || !name.trim()) {
-      setError("Wybierz organizację i podaj nazwę sklepu");
+    if (isPlatformAdmin && !organizationId) {
+      setError("Wybierz organizację");
+      return;
+    }
+
+    if (!name.trim()) {
+      setError("Podaj nazwę sklepu");
       return;
     }
 
@@ -78,28 +113,62 @@ export default function StoresPage() {
       setSubmitting(true);
       setError(null);
 
-      await apiClient("/stores", {
-        method: "POST",
-        body: JSON.stringify({
-          organizationId,
-          name: name.trim(),
-          city: city.trim() || undefined,
-          address: address.trim() || undefined,
-          zone: zone.trim() || undefined,
-        }),
+      const payload = {
+        organizationId: organizationId || undefined,
+        name: name.trim(),
+        city: city.trim() || undefined,
+        address: address.trim() || undefined,
+        zone: zone.trim() || undefined,
+      };
+
+      if (editingStore) {
+        await apiClient(`/stores/${editingStore.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiClient("/stores", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      }
+
+      resetForm();
+      await loadPage();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : editingStore
+            ? "Nie udało się zaktualizować sklepu"
+            : "Nie udało się utworzyć sklepu",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    const ok = window.confirm("Czy na pewno chcesz usunąć ten sklep?");
+    if (!ok) return;
+
+    try {
+      setDeletingId(id);
+      setError(null);
+
+      await apiClient(`/stores/${id}`, {
+        method: "DELETE",
       });
 
-      setOrganizationId("");
-      setName("");
-      setCity("");
-      setAddress("");
-      setZone("");
+      if (editingStore?.id === id) {
+        resetForm();
+      }
 
       await loadPage();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nie udało się utworzyć sklepu");
+      setError(err instanceof Error ? err.message : "Błąd usuwania sklepu");
     } finally {
-      setSubmitting(false);
+      setDeletingId(null);
     }
   }
 
@@ -114,7 +183,28 @@ export default function StoresPage() {
 
       {isPlatformAdmin ? (
         <section style={styles.card}>
-          <h2 style={styles.sectionTitle}>Dodaj sklep</h2>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h2 style={styles.sectionTitle}>
+                {editingStore ? "Edytuj sklep" : "Dodaj sklep"}
+              </h2>
+              <p style={styles.muted}>
+                {editingStore
+                  ? "Zmieniasz dane istniejącej lokalizacji."
+                  : "Tworzysz nową lokalizację dla organizacji."}
+              </p>
+            </div>
+
+            {editingStore ? (
+              <button
+                type="button"
+                onClick={resetForm}
+                style={styles.secondaryButton}
+              >
+                Anuluj edycję
+              </button>
+            ) : null}
+          </div>
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.grid}>
@@ -160,10 +250,26 @@ export default function StoresPage() {
               />
             </div>
 
-            <div>
+            <div style={styles.actionsRow}>
               <button type="submit" disabled={submitting} style={styles.button}>
-                {submitting ? "Tworzenie..." : "Utwórz sklep"}
+                {submitting
+                  ? editingStore
+                    ? "Zapisywanie..."
+                    : "Tworzenie..."
+                  : editingStore
+                    ? "Zapisz zmiany"
+                    : "Utwórz sklep"}
               </button>
+
+              {editingStore ? (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  style={styles.secondaryButton}
+                >
+                  Wyczyść formularz
+                </button>
+              ) : null}
             </div>
 
             {error ? <p style={styles.error}>{error}</p> : null}
@@ -172,9 +278,8 @@ export default function StoresPage() {
       ) : (
         <section style={styles.card}>
           <h2 style={styles.sectionTitle}>Sklepy organizacji</h2>
-          <p style={styles.muted}>
-            Tylko superadmin może dodawać nowe sklepy.
-          </p>
+          <p style={styles.muted}>Tylko superadmin może dodawać nowe sklepy.</p>
+          {error ? <p style={styles.error}>{error}</p> : null}
         </section>
       )}
 
@@ -197,11 +302,13 @@ export default function StoresPage() {
                 <div style={styles.storeTop}>
                   <div>
                     <h3 style={styles.storeName}>{store.name}</h3>
-                    <p style={styles.storeOrg}>{store.organization.name}</p>
+                    <p style={styles.storeOrg}>
+                      {store.organization?.name || "Brak organizacji"}
+                    </p>
                   </div>
 
                   <div style={styles.badges}>
-                    <span style={styles.badge}>{store.status}</span>
+                    <span style={styles.badge}>{store.status || "active"}</span>
                   </div>
                 </div>
 
@@ -226,6 +333,27 @@ export default function StoresPage() {
                     <div style={styles.value}>{store.healthScore ?? "—"}</div>
                   </div>
                 </div>
+
+                {isPlatformAdmin ? (
+                  <div style={styles.itemActions}>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(store)}
+                      style={styles.secondaryButtonSmall}
+                    >
+                      Edytuj
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(store.id)}
+                      disabled={deletingId === store.id}
+                      style={styles.dangerButtonSmall}
+                    >
+                      {deletingId === store.id ? "Usuwanie..." : "Usuń"}
+                    </button>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
@@ -235,7 +363,7 @@ export default function StoresPage() {
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   page: {
     color: "#fff",
   },
@@ -264,6 +392,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 16,
     marginBottom: 16,
+    flexWrap: "wrap",
   },
   sectionTitle: {
     margin: 0,
@@ -288,6 +417,11 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "0 14px",
     outline: "none",
   },
+  actionsRow: {
+    display: "flex",
+    gap: 12,
+    flexWrap: "wrap",
+  },
   button: {
     height: 46,
     borderRadius: 14,
@@ -308,12 +442,33 @@ const styles: Record<string, React.CSSProperties> = {
     background: "transparent",
     color: "#fff",
   },
+  secondaryButtonSmall: {
+    height: 36,
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.1)",
+    padding: "0 12px",
+    fontWeight: 600,
+    cursor: "pointer",
+    background: "transparent",
+    color: "#fff",
+  },
+  dangerButtonSmall: {
+    height: 36,
+    borderRadius: 12,
+    border: "1px solid rgba(255,102,102,0.28)",
+    padding: "0 12px",
+    fontWeight: 600,
+    cursor: "pointer",
+    background: "rgba(255,80,80,0.08)",
+    color: "#ff9d9d",
+  },
   error: {
     margin: 0,
     color: "#ff8f8f",
   },
   muted: {
     color: "#9ea8d8",
+    marginTop: 8,
   },
   list: {
     display: "grid",
@@ -343,6 +498,7 @@ const styles: Record<string, React.CSSProperties> = {
   badges: {
     display: "flex",
     gap: 8,
+    flexWrap: "wrap",
   },
   badge: {
     display: "inline-flex",
@@ -353,7 +509,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "rgba(109,124,255,0.14)",
     border: "1px solid rgba(109,124,255,0.35)",
     color: "#d7dcff",
-    fontSize: "12px",
+    fontSize: 12,
     fontWeight: 700,
   },
   infoGrid: {
@@ -372,5 +528,11 @@ const styles: Record<string, React.CSSProperties> = {
   value: {
     color: "#fff",
     wordBreak: "break-word",
+  },
+  itemActions: {
+    display: "flex",
+    gap: 10,
+    marginTop: 18,
+    flexWrap: "wrap",
   },
 };
