@@ -20,6 +20,10 @@ type SettingsData = {
   allowCustomDomains: boolean;
   maintenanceMode: boolean;
   primaryColor?: string | null;
+  googleDriveEnabled: boolean;
+  googleAppsScriptUrl?: string | null;
+  googleDriveRootFolderId?: string | null;
+  googleDriveRootFolderUrl?: string | null;
 };
 
 export default function SettingsPage() {
@@ -43,6 +47,10 @@ export default function SettingsPage() {
   const [allowCustomDomains, setAllowCustomDomains] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [primaryColor, setPrimaryColor] = useState("#6d7cff");
+  const [googleDriveEnabled, setGoogleDriveEnabled] = useState(false);
+  const [googleAppsScriptUrl, setGoogleAppsScriptUrl] = useState("");
+  const [googleDriveRootFolderId, setGoogleDriveRootFolderId] = useState("");
+  const [googleDriveRootFolderUrl, setGoogleDriveRootFolderUrl] = useState("");
 
   async function loadSettings() {
     try {
@@ -51,6 +59,10 @@ export default function SettingsPage() {
 
       const data = await apiClient<SettingsData>("/settings");
 
+      setGoogleDriveEnabled(!!data.googleDriveEnabled);
+      setGoogleAppsScriptUrl(data.googleAppsScriptUrl || "");
+      setGoogleDriveRootFolderId(data.googleDriveRootFolderId || "");
+      setGoogleDriveRootFolderUrl(data.googleDriveRootFolderUrl || "");
       setPlatformName(data.platformName || "");
       setSupportEmail(data.supportEmail || "");
       setAppBaseUrl(data.appBaseUrl || "");
@@ -103,6 +115,10 @@ export default function SettingsPage() {
           allowCustomDomains,
           maintenanceMode,
           primaryColor,
+          googleDriveEnabled,
+          googleAppsScriptUrl,
+          googleDriveRootFolderId,
+          googleDriveRootFolderUrl,
         }),
       });
 
@@ -196,6 +212,41 @@ export default function SettingsPage() {
             </label>
           </div>
         </section>
+
+        <section style={styles.card}>
+  <h2 style={styles.sectionTitle}>Google Drive</h2>
+  <div style={styles.switchGrid}>
+    <label style={styles.switchItem}>
+      <input
+        type="checkbox"
+        checked={googleDriveEnabled}
+        onChange={(e) => setGoogleDriveEnabled(e.target.checked)}
+      />
+      <span>Włącz integrację Google Drive</span>
+    </label>
+  </div>
+
+  <div style={{ ...styles.grid, marginTop: 16 }}>
+    <input
+      value={googleAppsScriptUrl}
+      onChange={(e) => setGoogleAppsScriptUrl(e.target.value)}
+      placeholder="Google Apps Script URL"
+      style={styles.input}
+    />
+    <input
+      value={googleDriveRootFolderId}
+      onChange={(e) => setGoogleDriveRootFolderId(e.target.value)}
+      placeholder="Google Drive root folder ID"
+      style={styles.input}
+    />
+    <input
+      value={googleDriveRootFolderUrl}
+      onChange={(e) => setGoogleDriveRootFolderUrl(e.target.value)}
+      placeholder="Google Drive root folder URL"
+      style={styles.input}
+    />
+  </div>
+</section>
 
         <div style={styles.actions}>
           <button type="submit" disabled={saving} style={styles.button}>

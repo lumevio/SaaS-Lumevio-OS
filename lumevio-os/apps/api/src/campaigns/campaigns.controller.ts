@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from "@nestjs/common";
 import { Roles } from "../auth/roles.decorator";
 import { CampaignsService } from "./campaigns.service";
 
@@ -29,5 +29,27 @@ export class CampaignsController {
     }
   ) {
     return this.campaignsService.create(dto);
+  }
+
+  @Roles("SUPERADMIN")
+  @Patch(":id")
+  update(
+    @Param("id") id: string,
+    @Body()
+    dto: {
+      name?: string;
+      type?: string;
+      objective?: string;
+      status?: string;
+      storeId?: string | null;
+    }
+  ) {
+    return this.campaignsService.update(id, dto);
+  }
+
+  @Roles("SUPERADMIN")
+  @Delete(":id")
+  remove(@Param("id") id: string) {
+    return this.campaignsService.remove(id);
   }
 }

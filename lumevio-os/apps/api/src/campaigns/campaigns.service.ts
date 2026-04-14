@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -33,9 +32,7 @@ export class CampaignsService {
         select: { id: true },
       });
 
-      if (!exists) {
-        return slug;
-      }
+      if (!exists) return slug;
 
       counter += 1;
       slug = `${baseSlug}-${counter}`;
@@ -43,58 +40,18 @@ export class CampaignsService {
   }
 
   async findAll(user?: any) {
-    if (user?.isPlatformAdmin) {
-      return this.prisma.campaign.findMany({
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          type: true,
-          objective: true,
-          status: true,
-          interactions: true,
-          leads: true,
-          conversionRate: true,
-          createdAt: true,
-          organization: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          store: {
-            select: {
-              id: true,
-              name: true,
-              city: true,
-            },
-          },
-        },
-      });
-    }
-
     const orgIds = getAccessibleOrganizationIds(user);
 
     return this.prisma.campaign.findMany({
-      where: {
-        organizationId: {
-          in: orgIds.length ? orgIds : ["__none__"],
-        },
-      },
+      where: user?.isPlatformAdmin
+        ? undefined
+        : {
+            organizationId: {
+              in: orgIds.length ? orgIds : ["__none__"],
+            },
+          },
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        type: true,
-        objective: true,
-        status: true,
-        interactions: true,
-        leads: true,
-        conversionRate: true,
-        createdAt: true,
+      include: {
         organization: {
           select: {
             id: true,
@@ -114,59 +71,26 @@ export class CampaignsService {
   }
 
   async findOne(id: string, user?: any) {
-    const campaign = await this.prisma.campaign.findUnique({
-      where: { id },
+    const orgIds = getAccessibleOrganizationIds(user);
+
+    const campaign = await this.prisma.campaign.findFirst({
+      where: user?.isPlatformAdmin
+        ? { id }
+        : {
+            id,
+            organizationId: {
+              in: orgIds.length ? orgIds : ["__none__"],
+            },
+          },
       include: {
-        organization: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            industry: true,
-            plan: true,
-            status: true,
-          },
-        },
-        store: {
-          select: {
-            id: true,
-            name: true,
-            city: true,
-            address: true,
-            zone: true,
-            status: true,
-          },
-        },
-        redirectLinks: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            destinationUrl: true,
-            fallbackUrl: true,
-            isActive: true,
-            createdAt: true,
-          },
-        },
-        documents: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            name: true,
-            documentType: true,
-            fileUrl: true,
-            createdAt: true,
-          },
-        },
+        organization: true,
+        store: true,
+        redirectLinks: true,
+        documents: true,
         events: {
           orderBy: { createdAt: "desc" },
-          take: 25,
-          select: {
-            id: true,
-            type: true,
-            createdAt: true,
-            payload: true,
+          take: 20,
+          include: {
             redirectLink: {
               select: {
                 id: true,
@@ -177,15 +101,7 @@ export class CampaignsService {
           },
         },
         nfcTags: {
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            uid: true,
-            serialNumber: true,
-            tagType: true,
-            label: true,
-            status: true,
-            assignedAt: true,
+          include: {
             redirectLink: {
               select: {
                 id: true,
@@ -200,14 +116,6 @@ export class CampaignsService {
 
     if (!campaign) {
       throw new NotFoundException("Kampania nie została znaleziona");
-    }
-
-    if (!user?.isPlatformAdmin) {
-      const orgIds = getAccessibleOrganizationIds(user);
-
-      if (!orgIds.includes(campaign.organizationId)) {
-        throw new ForbiddenException("Brak dostępu do tej kampanii");
-      }
     }
 
     return campaign;
@@ -226,7 +134,7 @@ export class CampaignsService {
 
     const organization = await this.prisma.organization.findUnique({
       where: { id: dto.organizationId },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     if (!organization) {
@@ -248,10 +156,11 @@ export class CampaignsService {
       }
     }
 
-    const baseSlug = this.slugify(dto.name);
-    const slug = await this.ensureUniqueSlug(baseSlug);
+    const slug = await this.ensureUniqueSlug(
+      this.slugify(`${organization.name}-${dto.name}`)
+    );
 
-    const campaign = await this.prisma.campaign.create({
+    return this.prisma.campaign.create({
       data: {
         organizationId: dto.organizationId,
         storeId: dto.storeId || null,
@@ -261,17 +170,7 @@ export class CampaignsService {
         objective: dto.objective?.trim() || null,
         status: "DRAFT",
       },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        type: true,
-        objective: true,
-        status: true,
-        interactions: true,
-        leads: true,
-        conversionRate: true,
-        createdAt: true,
+      include: {
         organization: {
           select: {
             id: true,
@@ -288,10 +187,99 @@ export class CampaignsService {
         },
       },
     });
+  }
+
+  async update(
+    id: string,
+    dto: {
+      name?: string;
+      type?: string;
+      objective?: string;
+      status?: string;
+      storeId?: string | null;
+    }
+  ) {
+    const existing = await this.prisma.campaign.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        organizationId: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException("Kampania nie została znaleziona");
+    }
+
+    if (dto.storeId) {
+      const store = await this.prisma.store.findUnique({
+        where: { id: dto.storeId },
+        select: { id: true, organizationId: true },
+      });
+
+      if (!store) {
+        throw new BadRequestException("Sklep nie istnieje");
+      }
+
+      if (store.organizationId !== existing.organizationId) {
+        throw new BadRequestException("Sklep nie należy do tej organizacji");
+      }
+    }
+
+    let slug: string | undefined;
+
+    if (dto.name?.trim() && dto.name.trim() !== existing.name) {
+      slug = await this.ensureUniqueSlug(this.slugify(dto.name));
+    }
+
+    return this.prisma.campaign.update({
+      where: { id },
+      data: {
+        name: dto.name?.trim(),
+        type: dto.type?.trim(),
+        objective: dto.objective?.trim(),
+        status: dto.status,
+        storeId: dto.storeId === undefined ? undefined : dto.storeId,
+        slug,
+      },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        store: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+          },
+        },
+      },
+    });
+  }
+
+  async remove(id: string) {
+    const existing = await this.prisma.campaign.findUnique({
+      where: { id },
+      select: { id: true, name: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException("Kampania nie została znaleziona");
+    }
+
+    await this.prisma.campaign.delete({
+      where: { id },
+    });
 
     return {
       success: true,
-      campaign,
+      deletedId: id,
+      message: `Usunięto kampanię: ${existing.name}`,
     };
   }
 }

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 import { getCampaignPage, trackEvent } from "../../lib/api";
 import { getOrCreateSessionId } from "../../lib/session";
 
@@ -13,12 +19,18 @@ type CampaignPageData = {
   pageMode?: string;
   externalUrl?: string | null;
   jsonConfig?: {
+    builderPreset?: string;
     heroTitle?: string;
     heroDescription?: string;
     ctaLabel?: string;
     ctaUrl?: string;
     formTitle?: string;
     backgroundImage?: string;
+    rewardTitle?: string;
+    couponCode?: string;
+    discountValue?: string;
+    quizQuestion?: string;
+    quizAnswers?: string[];
   } | null;
   campaign: {
     id: string;
@@ -45,6 +57,8 @@ export default function PublicCampaignPage({
   const [formName, setFormName] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [couponRevealed, setCouponRevealed] = useState(false);
+  const [quizAnswer, setQuizAnswer] = useState<string | null>(null);
 
   function getSessionIdFromUrl() {
     if (typeof window === "undefined") return "";
@@ -85,8 +99,7 @@ export default function PublicCampaignPage({
             path: `/${result.slug}`,
             userAgent:
               typeof navigator !== "undefined" ? navigator.userAgent : "",
-            href:
-              typeof window !== "undefined" ? window.location.href : "",
+            href: typeof window !== "undefined" ? window.location.href : "",
           },
         });
       } catch (err) {
@@ -123,6 +136,7 @@ export default function PublicCampaignPage({
           slug: data.slug,
           ctaLabel: config.ctaLabel || "Sprawdź",
           ctaUrl: config.ctaUrl || "",
+          templateType: data.templateType,
         },
       });
 
@@ -148,6 +162,7 @@ export default function PublicCampaignPage({
         sessionId,
         payload: {
           slug: data.slug,
+          templateType: data.templateType,
           name: formName,
           email: formEmail,
         },
@@ -156,6 +171,55 @@ export default function PublicCampaignPage({
       setSubmitted(true);
       setFormName("");
       setFormEmail("");
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleRevealCoupon() {
+    if (!data) return;
+
+    try {
+      const sessionId = resolveSessionId();
+
+      await trackEvent({
+        type: "cta_click",
+        organizationId: data.organization.id,
+        campaignId: data.campaign.id,
+        sessionId,
+        payload: {
+          slug: data.slug,
+          templateType: data.templateType,
+          action: "reveal_coupon",
+        },
+      });
+
+      setCouponRevealed(true);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleQuizAnswer(answer: string) {
+    if (!data) return;
+
+    try {
+      const sessionId = resolveSessionId();
+
+      await trackEvent({
+        type: "cta_click",
+        organizationId: data.organization.id,
+        campaignId: data.campaign.id,
+        sessionId,
+        payload: {
+          slug: data.slug,
+          templateType: data.templateType,
+          action: "quiz_answer",
+          answer,
+        },
+      });
+
+      setQuizAnswer(answer);
     } catch (err) {
       console.error(err);
     }
@@ -193,54 +257,72 @@ export default function PublicCampaignPage({
     );
   }
 
+  const heroTitle = config.heroTitle || data.title || data.campaign.name;
+  const heroDescription =
+    config.heroDescription ||
+    "Interaktywna kampania LUMEVIO. Odbierz ofertę, dołącz do aktywacji i wejdź w świat phygital.";
+  const ctaLabel = config.ctaLabel || "Sprawdź więcej";
+  const formTitle = config.formTitle || "Dołącz do kampanii";
+
   return (
     <main style={styles.page}>
       <section style={styles.hero}>
         <div style={styles.overlay} />
         <div style={styles.heroContent}>
           <div style={styles.brand}>{data.organization.name}</div>
-          <h1 style={styles.heroTitle}>
-            {config.heroTitle || data.title || data.campaign.name}
-          </h1>
-          <p style={styles.heroDescription}>
-            {config.heroDescription ||
-              "Interaktywna kampania LUMEVIO. Odbierz ofertę, dołącz do aktywacji i wejdź w świat phygital."}
-          </p>
+          <h1 style={styles.heroTitle}>{heroTitle}</h1>
+          <p style={styles.heroDescription}>{heroDescription}</p>
 
-          <div style={styles.heroActions}>
-            <button onClick={handleCtaClick} style={styles.primaryButton}>
-              {config.ctaLabel || "Sprawdź więcej"}
-            </button>
-          </div>
+          {data.templateType !== "quiz" && data.templateType !== "coupon" ? (
+            <div style={styles.heroActions}>
+              <button onClick={handleCtaClick} style={styles.primaryButton}>
+                {ctaLabel}
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 
       <section style={styles.contentWrap}>
         <div style={styles.grid}>
           <article style={styles.card}>
-            <h2 style={styles.cardTitle}>O kampanii</h2>
-            <p style={styles.cardText}>
-              To jest publiczna strona kampanii LUMEVIO. Możesz później podmieniać treści,
-              grafikę, formularze, quizy, kupony i konkursy.
-            </p>
+            {data.templateType === "landing" && (
+              <LandingSection
+                campaignName={data.campaign.name}
+                slug={data.slug}
+                templateType={data.templateType}
+              />
+            )}
 
-            <div style={styles.metaList}>
-              <div>
-                <strong>Kampania:</strong> {data.campaign.name}
-              </div>
-              <div>
-                <strong>Slug:</strong> {data.slug}
-              </div>
-              <div>
-                <strong>Typ:</strong> {data.templateType}
-              </div>
-            </div>
+            {data.templateType === "contest" && (
+              <ContestSection rewardTitle={config.rewardTitle} />
+            )}
+
+            {data.templateType === "coupon" && (
+              <CouponSection
+                couponCode={config.couponCode}
+                discountValue={config.discountValue}
+                couponRevealed={couponRevealed}
+                onReveal={handleRevealCoupon}
+              />
+            )}
+
+            {data.templateType === "quiz" && (
+              <QuizSection
+                question={config.quizQuestion}
+                answers={config.quizAnswers}
+                selectedAnswer={quizAnswer}
+                onAnswer={handleQuizAnswer}
+              />
+            )}
+
+            {data.templateType === "lead_form" && (
+              <LeadFormIntro campaignName={data.campaign.name} />
+            )}
           </article>
 
           <article style={styles.card}>
-            <h2 style={styles.cardTitle}>
-              {config.formTitle || "Dołącz do kampanii"}
-            </h2>
+            <h2 style={styles.cardTitle}>{formTitle}</h2>
 
             {submitted ? (
               <div style={styles.successBox}>
@@ -270,6 +352,147 @@ export default function PublicCampaignPage({
         </div>
       </section>
     </main>
+  );
+}
+
+function LandingSection({
+  campaignName,
+  slug,
+  templateType,
+}: {
+  campaignName: string;
+  slug: string;
+  templateType: string;
+}) {
+  return (
+    <>
+      <h2 style={styles.cardTitle}>O kampanii</h2>
+      <p style={styles.cardText}>
+        To jest publiczna strona kampanii LUMEVIO. Możesz później podmieniać
+        treści, grafikę, formularze, quizy, kupony i konkursy.
+      </p>
+      <div style={styles.metaList}>
+        <div>
+          <strong>Kampania:</strong> {campaignName}
+        </div>
+        <div>
+          <strong>Slug:</strong> {slug}
+        </div>
+        <div>
+          <strong>Typ:</strong> {templateType}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ContestSection({ rewardTitle }: { rewardTitle?: string }) {
+  return (
+    <>
+      <h2 style={styles.cardTitle}>Konkurs</h2>
+      <p style={styles.cardText}>
+        Weź udział w aktywacji i zgłoś się do konkursu. Idealny format do retailu,
+        ekspozycji produktowych i szybkich akcji promocyjnych.
+      </p>
+      <div style={styles.highlightBox}>
+        Nagroda główna: {rewardTitle || "Voucher / zestaw nagród"}
+      </div>
+    </>
+  );
+}
+
+function CouponSection({
+  couponCode,
+  discountValue,
+  couponRevealed,
+  onReveal,
+}: {
+  couponCode?: string;
+  discountValue?: string;
+  couponRevealed: boolean;
+  onReveal: () => void;
+}) {
+  return (
+    <>
+      <h2 style={styles.cardTitle}>Kupon promocyjny</h2>
+      <p style={styles.cardText}>
+        Odbierz rabat i pokaż kod przy kasie lub wykorzystaj go online.
+      </p>
+
+      <div style={styles.couponBox}>
+        {couponRevealed ? (
+          <>
+            <div style={styles.couponValue}>
+              {discountValue || "10% OFF"}
+            </div>
+            <div style={styles.couponCode}>
+              {couponCode || "LUMEVIO10"}
+            </div>
+          </>
+        ) : (
+          <button onClick={onReveal} style={styles.primaryButton}>
+            Odkryj kupon
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+function QuizSection({
+  question,
+  answers,
+  selectedAnswer,
+  onAnswer,
+}: {
+  question?: string;
+  answers?: string[];
+  selectedAnswer: string | null;
+  onAnswer: (answer: string) => void;
+}) {
+  const safeAnswers =
+    answers && answers.length > 0
+      ? answers
+      : ["Odpowiedź A", "Odpowiedź B", "Odpowiedź C"];
+
+  return (
+    <>
+      <h2 style={styles.cardTitle}>Quiz</h2>
+      <p style={styles.cardText}>
+        {question || "Który wariant produktu wybierasz najchętniej?"}
+      </p>
+
+      <div style={styles.quizAnswers}>
+        {safeAnswers.map((answer) => (
+          <button
+            key={answer}
+            onClick={() => onAnswer(answer)}
+            style={{
+              ...styles.quizButton,
+              ...(selectedAnswer === answer ? styles.quizButtonActive : {}),
+            }}
+          >
+            {answer}
+          </button>
+        ))}
+      </div>
+
+      {selectedAnswer ? (
+        <div style={styles.successBox}>Wybrana odpowiedź: {selectedAnswer}</div>
+      ) : null}
+    </>
+  );
+}
+
+function LeadFormIntro({ campaignName }: { campaignName: string }) {
+  return (
+    <>
+      <h2 style={styles.cardTitle}>Lead Form</h2>
+      <p style={styles.cardText}>
+        Zostaw kontakt, aby otrzymać ofertę, materiały lub dalsze informacje
+        o kampanii {campaignName}.
+      </p>
+    </>
   );
 }
 
@@ -419,5 +642,54 @@ const styles: Record<string, CSSProperties> = {
     background: "rgba(80,200,120,0.08)",
     border: "1px solid rgba(80,200,120,0.24)",
     color: "#c9ffd8",
+  },
+  highlightBox: {
+    marginTop: 18,
+    borderRadius: 16,
+    padding: 18,
+    background: "rgba(109,124,255,0.08)",
+    border: "1px solid rgba(109,124,255,0.24)",
+    color: "#dfe3ff",
+    fontWeight: 700,
+  },
+  couponBox: {
+    marginTop: 20,
+    minHeight: 140,
+    borderRadius: 20,
+    display: "grid",
+    placeItems: "center",
+    border: "1px dashed rgba(255,255,255,0.18)",
+    background: "rgba(255,255,255,0.02)",
+    padding: 20,
+  },
+  couponValue: {
+    fontSize: 36,
+    fontWeight: 900,
+    marginBottom: 10,
+  },
+  couponCode: {
+    fontSize: 22,
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    color: "#dfe3ff",
+  },
+  quizAnswers: {
+    display: "grid",
+    gap: 12,
+    marginTop: 18,
+  },
+  quizButton: {
+    minHeight: 50,
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "#0d1027",
+    color: "#fff",
+    padding: "0 16px",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  quizButtonActive: {
+    border: "1px solid rgba(109,124,255,0.55)",
+    background: "rgba(109,124,255,0.16)",
   },
 };

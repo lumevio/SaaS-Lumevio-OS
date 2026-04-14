@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -28,7 +27,7 @@ export class OrganizationsService {
   }
 
   private async ensureUniqueSlug(baseSlug: string): Promise<string> {
-    let slug = baseSlug || `organization-${Date.now()}`;
+    let slug = baseSlug || `org-${Date.now()}`;
     let counter = 1;
 
     while (true) {
@@ -37,13 +36,46 @@ export class OrganizationsService {
         select: { id: true },
       });
 
-      if (!exists) {
-        return slug;
-      }
+      if (!exists) return slug;
 
       counter += 1;
       slug = `${baseSlug}-${counter}`;
     }
+  }
+
+  async findAll(user?: any) {
+    const orgIds = getAccessibleOrganizationIds(user);
+
+    return this.prisma.organization.findMany({
+      where: user?.isPlatformAdmin
+        ? undefined
+        : {
+            id: {
+              in: orgIds.length ? orgIds : ["__none__"],
+            },
+          },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async findOne(id: string, user?: any) {
+    const orgIds = getAccessibleOrganizationIds(user);
+
+    const organization = await this.prisma.organization.findFirst({
+      where: user?.isPlatformAdmin
+        ? { id }
+        : {
+            id: {
+              in: orgIds.length ? orgIds : ["__none__"],
+            },
+          },
+    });
+
+    if (!organization) {
+      throw new NotFoundException("Organizacja nie została znaleziona");
+    }
+
+    return organization;
   }
 
   async create(dto: { name: string; industry?: string }) {
@@ -54,95 +86,34 @@ export class OrganizationsService {
     const baseSlug = this.slugify(dto.name);
     const slug = await this.ensureUniqueSlug(baseSlug);
 
-    const organization = await this.prisma.organization.create({
+    const created = await this.prisma.organization.create({
       data: {
         name: dto.name.trim(),
         slug,
         industry: dto.industry?.trim() || null,
         plan: "STARTER",
         status: "LEAD",
-        syncEnabled: true,
       },
     });
 
     try {
-      console.log("🔥 CREATE START:", organization.name);
-
       const driveResult = await this.driveService.createOrganizationFolder(
-        organization.name
+        created.name
       );
 
-      console.log("➡️ DRIVE RESULT:", driveResult);
-
-      if (driveResult?.success && driveResult.folderUrl) {
-        const updated = await this.prisma.organization.update({
-          where: { id: organization.id },
+      if (driveResult?.success) {
+        return this.prisma.organization.update({
+          where: { id: created.id },
           data: {
             rootFolderId: driveResult.folderId || null,
-            rootFolderUrl: driveResult.folderUrl,
+            rootFolderUrl: driveResult.folderUrl || null,
             lastSyncAt: new Date(),
-            syncEnabled: true,
           },
         });
-
-        console.log("✅ UPDATED:", updated);
-        return updated;
       }
+    } catch {}
 
-      return organization;
-    } catch (error) {
-      console.error("❌ DRIVE SYNC ERROR:", error);
-      return organization;
-    }
-  }
-
-  async findAll(user?: any) {
-    if (user?.isPlatformAdmin) {
-      return this.prisma.organization.findMany({
-        orderBy: { createdAt: "desc" },
-      });
-    }
-
-    const orgIds = getAccessibleOrganizationIds(user);
-
-    return this.prisma.organization.findMany({
-      where: {
-        id: {
-          in: orgIds.length ? orgIds : ["__none__"],
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
-  async findOne(id: string, user?: any) {
-    if (user?.isPlatformAdmin) {
-      const organization = await this.prisma.organization.findUnique({
-        where: { id },
-      });
-
-      if (!organization) {
-        throw new NotFoundException("Organizacja nie została znaleziona");
-      }
-
-      return organization;
-    }
-
-    const orgIds = getAccessibleOrganizationIds(user);
-
-    if (!orgIds.includes(id)) {
-      throw new ForbiddenException("Brak dostępu do tej organizacji");
-    }
-
-    const organization = await this.prisma.organization.findUnique({
-      where: { id },
-    });
-
-    if (!organization) {
-      throw new NotFoundException("Organizacja nie została znaleziona");
-    }
-
-    return organization;
+    return created;
   }
 
   async update(
@@ -155,43 +126,41 @@ export class OrganizationsService {
       syncEnabled?: boolean;
     }
   ) {
-    const exists = await this.prisma.organization.findUnique({
+    const existing = await this.prisma.organization.findUnique({
       where: { id },
       select: { id: true, name: true },
     });
 
-    if (!exists) {
+    if (!existing) {
       throw new NotFoundException("Organizacja nie została znaleziona");
     }
 
-    let nextSlug: string | undefined;
+    let slug: string | undefined;
 
-    if (dto.name?.trim() && dto.name.trim() !== exists.name) {
-      const baseSlug = this.slugify(dto.name);
-      nextSlug = await this.ensureUniqueSlug(baseSlug);
+    if (dto.name?.trim() && dto.name.trim() !== existing.name) {
+      slug = await this.ensureUniqueSlug(this.slugify(dto.name));
     }
 
     return this.prisma.organization.update({
       where: { id },
       data: {
-        name: dto.name?.trim() || undefined,
-        slug: nextSlug,
-        industry: dto.industry?.trim() || undefined,
-        plan: dto.plan?.trim() || undefined,
-        status: dto.status?.trim() || undefined,
-        syncEnabled:
-          typeof dto.syncEnabled === "boolean" ? dto.syncEnabled : undefined,
+        name: dto.name?.trim(),
+        industry: dto.industry?.trim(),
+        plan: dto.plan,
+        status: dto.status,
+        syncEnabled: dto.syncEnabled,
+        slug,
       },
     });
   }
 
   async remove(id: string) {
-    const exists = await this.prisma.organization.findUnique({
+    const existing = await this.prisma.organization.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
-    if (!exists) {
+    if (!existing) {
       throw new NotFoundException("Organizacja nie została znaleziona");
     }
 
@@ -201,7 +170,8 @@ export class OrganizationsService {
 
     return {
       success: true,
-      message: "Organizacja usunięta",
+      deletedId: id,
+      message: `Usunięto organizację: ${existing.name}`,
     };
   }
 }

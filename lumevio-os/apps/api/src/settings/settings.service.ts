@@ -35,6 +35,11 @@ export class SettingsService {
     allowCustomDomains?: boolean;
     maintenanceMode?: boolean;
     primaryColor?: string;
+
+    googleDriveEnabled?: boolean;
+    googleAppsScriptUrl?: string;
+    googleDriveRootFolderId?: string;
+    googleDriveRootFolderUrl?: string;
   }) {
     const current = await this.getSettings();
 
@@ -56,6 +61,11 @@ export class SettingsService {
         allowCustomDomains: input.allowCustomDomains,
         maintenanceMode: input.maintenanceMode,
         primaryColor: input.primaryColor,
+
+        googleDriveEnabled: input.googleDriveEnabled,
+        googleAppsScriptUrl: input.googleAppsScriptUrl,
+        googleDriveRootFolderId: input.googleDriveRootFolderId,
+        googleDriveRootFolderUrl: input.googleDriveRootFolderUrl,
       },
     });
   }

@@ -317,6 +317,12 @@ model PlatformSetting {
   allowCustomDomains      Boolean  @default(false)
   maintenanceMode         Boolean  @default(false)
   primaryColor            String?  @default("#6d7cff")
+
+  googleDriveEnabled       Boolean  @default(false)
+  googleAppsScriptUrl      String?
+  googleDriveRootFolderId  String?
+  googleDriveRootFolderUrl String?
+
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 }
