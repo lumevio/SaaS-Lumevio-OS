@@ -1,0 +1,301 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleKey {
+  OWNER
+  ADMIN
+  CLIENT_ADMIN
+  MANAGER
+  ANALYST
+  FIELD_OPERATOR
+  VIEWER
+}
+
+model User {
+  id                String                 @id @default(cuid())
+  email             String                 @unique
+  passwordHash      String
+  firstName         String?
+  lastName          String?
+  isPlatformAdmin   Boolean                @default(false)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  organizationRoles UserOrganizationRole[]
+  auditLogs         AuditLog[]
+
+  @@index([email])
+}
+
+model Role {
+  id                String                 @id @default(cuid())
+  key               RoleKey                @unique
+  name              String
+  createdAt         DateTime               @default(now())
+
+  organizationRoles UserOrganizationRole[]
+}
+
+model Organization {
+  id            String                 @id @default(cuid())
+  name          String
+  slug          String                 @unique
+  industry      String?
+  plan          String                 @default("STARTER")
+  status        String                 @default("ACTIVE")
+  storesCount   Int                    @default(0)
+  rootFolderId  String?
+  rootFolderUrl String?
+  syncEnabled   Boolean                @default(true)
+  lastSyncAt    DateTime?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  stores        Store[]
+  campaigns     Campaign[]
+  documents     Document[]
+  driveFiles    DriveFile[]
+  userRoles     UserOrganizationRole[]
+  auditLogs     AuditLog[]
+  redirectLinks RedirectLink[]
+  events        Event[]
+  nfcTags       NfcTag[]
+  pages         CampaignPage[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+model UserOrganizationRole {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  roleId         String
+  createdAt      DateTime     @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId, roleId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([roleId])
+}
+
+model Store {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  city           String?
+  address        String?
+  zone           String?
+  healthScore    Int?
+  status         String       @default("LIVE")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaigns      Campaign[]
+
+  @@index([organizationId])
+  @@index([name])
+  @@index([status])
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  organizationId String
+  storeId        String?
+  name           String
+  slug           String         @unique
+  type           String
+  objective      String?
+  status         String         @default("DRAFT")
+  interactions   Int            @default(0)
+  leads          Int            @default(0)
+  conversionRate Float          @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store          Store?         @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  documents      Document[]
+  redirectLinks  RedirectLink[]
+  events         Event[]
+  nfcTags        NfcTag[]
+  pages          CampaignPage[]
+
+  @@index([organizationId])
+  @@index([storeId])
+  @@index([slug])
+  @@index([status])
+}
+
+model Document {
+  id             String        @id @default(cuid())
+  organizationId String
+  campaignId     String?
+  name           String
+  documentType   String
+  fileUrl        String?
+  driveFileId    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([documentType])
+}
+
+model DriveFile {
+  id                String       @id @default(cuid())
+  organizationId    String
+  driveFileId       String       @unique
+  folderId          String?
+  name              String
+  mimeType          String?
+  webViewLink       String?
+  size              Int?
+  modifiedTime      DateTime?
+  lastSyncedAt      DateTime?
+  isFolder          Boolean      @default(false)
+  parentDriveFileId String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([driveFileId])
+  @@index([folderId])
+}
+
+model RedirectLink {
+  id             String       @id @default(cuid())
+  organizationId String
+  campaignId     String?
+  slug           String       @unique
+  destinationUrl String
+  fallbackUrl    String?
+  title          String?
+  isActive       Boolean      @default(true)
+  validFrom      DateTime?
+  validTo        DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign       Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  events         Event[]
+  nfcTags        NfcTag[]
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([slug])
+  @@index([isActive])
+}
+
+model NfcTag {
+  id             String        @id @default(cuid())
+  organizationId String
+  campaignId     String?
+  redirectLinkId String?
+  uid            String        @unique
+  serialNumber   String?
+  tagType        String?
+  label          String?
+  status         String        @default("ACTIVE")
+  assignedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  redirectLink   RedirectLink? @relation(fields: [redirectLinkId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([redirectLinkId])
+  @@index([uid])
+  @@index([status])
+}
+
+model CampaignPage {
+  id             String       @id @default(cuid())
+  organizationId String
+  campaignId     String
+  slug           String       @unique
+  title          String
+  templateType   String       @default("landing")
+  status         String       @default("draft")
+  pageMode       String       @default("hosted")
+  externalUrl    String?
+  customDomain   String?
+  jsonConfig     Json?
+  publishedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign       Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([slug])
+  @@index([status])
+  @@index([pageMode])
+}
+
+model Event {
+  id             String        @id @default(cuid())
+  type           String
+  organizationId String
+  campaignId     String?
+  redirectLinkId String?
+  nfcTagId       String?
+  sessionId      String?
+  payload        Json?
+  createdAt      DateTime      @default(now())
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  redirectLink   RedirectLink? @relation(fields: [redirectLinkId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([campaignId])
+  @@index([redirectLinkId])
+  @@index([nfcTagId])
+  @@index([sessionId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  userId         String?
+  organizationId String?
+  action         String
+  entityType     String
+  entityId       String?
+  payloadJson    Json?
+  createdAt      DateTime      @default(now())
+
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
