@@ -1,138 +1,76 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateNfcTagDto } from './dto/create-nfc-tag.dto';
-import { UpdateNfcTagDto } from './dto/update-nfc-tag.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class NfcTagsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: string) {
-  return this.prisma.nfcTag.findUnique({
-    where: { id },
-    include: {
-      redirectLink: true,
-      organization: true,
-      campaign: true,
-      store: true,
-    },
-  });
-}
-
   async findAll() {
     return this.prisma.nfcTag.findMany({
+      orderBy: { createdAt: "desc" },
       include: {
-        organization: true,
-        store: true,
-        campaign: true,
-        redirectLink: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
+        organization: {
+          select: { id: true, name: true, slug: true },
+        },
+        store: {
+          select: { id: true, name: true },
+        },
+        campaign: {
+          select: { id: true, name: true, slug: true },
+        },
+        redirectLink: {
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            destinationUrl: true,
+          },
+        },
       },
     });
   }
 
-  async findOne(id: string) {
-    const item = await this.prisma.nfcTag.findUnique({
+  async findById(id: string) {
+    const tag = await this.prisma.nfcTag.findUnique({
       where: { id },
       include: {
-        organization: true,
-        store: true,
-        campaign: true,
-        redirectLink: true,
+        organization: {
+          select: { id: true, name: true, slug: true },
+        },
+        store: {
+          select: { id: true, name: true },
+        },
+        campaign: {
+          select: { id: true, name: true, slug: true },
+        },
+        redirectLink: {
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            destinationUrl: true,
+          },
+        },
       },
     });
 
-    if (!item) {
-      throw new NotFoundException('NFC tag not found');
+    if (!tag) {
+      throw new NotFoundException("NFC tag not found");
     }
 
-    return item;
+    return tag;
   }
 
-  async create(dto: CreateNfcTagDto) {
-    return this.prisma.nfcTag.create({
-      data: {
-        organization: {
-          connect: { id: dto.organizationId },
-        },
-        store: dto.storeId
-          ? {
-              connect: { id: dto.storeId },
-            }
-          : undefined,
-        campaign: dto.campaignId
-          ? {
-              connect: { id: dto.campaignId },
-            }
-          : undefined,
-        redirectLink: dto.redirectLinkId
-          ? {
-              connect: { id: dto.redirectLinkId },
-            }
-          : undefined,
-        uid: dto.uid,
-        serialNumber: dto.serialNumber,
-        tagType: dto.tagType,
-        label: dto.label,
-        status: dto.status ?? 'ACTIVE',
-      },
-      include: {
-        organization: true,
-        store: true,
-        campaign: true,
-        redirectLink: true,
-      },
-    });
-  }
+  getPublicUrl(tag: { id: string; redirectLink?: { slug: string } | null }) {
+    const appBase =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.APP_BASE_URL ||
+      "http://localhost:3000";
 
-  async update(id: string, dto: UpdateNfcTagDto) {
-    await this.findOne(id);
+    if (!tag.redirectLink?.slug) {
+      return `${appBase.replace(/\/$/, "")}/nfc/${tag.id}`;
+    }
 
-    return this.prisma.nfcTag.update({
-      where: { id },
-      data: {
-        uid: dto.uid,
-        serialNumber: dto.serialNumber,
-        tagType: dto.tagType,
-        label: dto.label,
-        status: dto.status,
-        organization: dto.organizationId
-          ? {
-              connect: { id: dto.organizationId },
-            }
-          : undefined,
-        store: dto.storeId
-          ? {
-              connect: { id: dto.storeId },
-            }
-          : undefined,
-        campaign: dto.campaignId
-          ? {
-              connect: { id: dto.campaignId },
-            }
-          : undefined,
-        redirectLink: dto.redirectLinkId
-          ? {
-              connect: { id: dto.redirectLinkId },
-            }
-          : undefined,
-      },
-      include: {
-        organization: true,
-        store: true,
-        campaign: true,
-        redirectLink: true,
-      },
-    });
-  }
-
-  async remove(id: string) {
-    await this.findOne(id);
-
-    return this.prisma.nfcTag.delete({
-      where: { id },
-    });
+    return `${appBase.replace(/\/$/, "")}/r/${tag.redirectLink.slug}?nfc_tag_id=${encodeURIComponent(tag.id)}`;
   }
 }

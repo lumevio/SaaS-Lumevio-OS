@@ -1,39 +1,18 @@
-import { Body, Controller, Get, Patch } from "@nestjs/common";
-import { Roles } from "../auth/roles.decorator";
+import { Body, Controller, Get, Put } from "@nestjs/common";
 import { SettingsService } from "./settings.service";
+import { UpsertSettingsDto } from "./dto/upsert-settings.dto";
 
 @Controller("settings")
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
-  @Roles("SUPERADMIN")
   @Get()
-  getSettings() {
-    return this.settingsService.getSettings();
+  getAll() {
+    return this.settingsService.getAll();
   }
 
-  @Roles("SUPERADMIN")
-  @Patch()
-  updateSettings(
-    @Body()
-    dto: {
-      platformName?: string;
-      supportEmail?: string;
-      appBaseUrl?: string;
-      apiBaseUrl?: string;
-      goBaseUrl?: string;
-      defaultCampaignPreset?: string;
-      defaultPageMode?: string;
-      defaultUtmSource?: string;
-      defaultUtmMedium?: string;
-      trackIp?: boolean;
-      trackUserAgent?: boolean;
-      trackReferer?: boolean;
-      allowCustomDomains?: boolean;
-      maintenanceMode?: boolean;
-      primaryColor?: string;
-    }
-  ) {
-    return this.settingsService.updateSettings(dto);
+  @Put()
+  upsert(@Body() dto: UpsertSettingsDto) {
+    return this.settingsService.upsert(dto);
   }
 }

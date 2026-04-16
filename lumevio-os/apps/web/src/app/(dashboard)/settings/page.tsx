@@ -1,85 +1,81 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, type CSSProperties } from "react";
 import { apiClient } from "@/lib/api-client";
 
-type SettingsData = {
-  id: string;
+type SettingsPayload = {
   platformName: string;
-  supportEmail?: string | null;
-  appBaseUrl?: string | null;
-  apiBaseUrl?: string | null;
-  goBaseUrl?: string | null;
-  defaultCampaignPreset: string;
-  defaultPageMode: string;
-  defaultUtmSource?: string | null;
-  defaultUtmMedium?: string | null;
+  supportEmail: string;
+  accentColor: string;
+  appBaseUrl: string;
+  apiBaseUrl: string;
+  publicBaseUrl: string;
+  defaultCampaignPageType: string;
+  defaultCampaignPageMode: string;
+  defaultCampaignDomain: string;
+  defaultTagPrefix: string;
   trackIp: boolean;
   trackUserAgent: boolean;
   trackReferer: boolean;
   allowCustomDomains: boolean;
   maintenanceMode: boolean;
-  primaryColor?: string | null;
   googleDriveEnabled: boolean;
-  googleAppsScriptUrl?: string | null;
-  googleDriveRootFolderId?: string | null;
-  googleDriveRootFolderUrl?: string | null;
+  googleDriveScriptUrl: string;
+  googleDriveRootFolderId: string;
+  googleDriveRootFolderUrl: string;
+};
+
+const INITIAL_SETTINGS: SettingsPayload = {
+  platformName: "LUMEVIO OS",
+  supportEmail: "admin@lumevio.pl",
+  accentColor: "#6d7cff",
+  appBaseUrl: "http://127.0.0.1:3000",
+  apiBaseUrl: "http://127.0.0.1:3001",
+  publicBaseUrl: "http://127.0.0.1:3002",
+  defaultCampaignPageType: "landing",
+  defaultCampaignPageMode: "hosted",
+  defaultCampaignDomain: "lumevio",
+  defaultTagPrefix: "nfc",
+  trackIp: true,
+  trackUserAgent: true,
+  trackReferer: true,
+  allowCustomDomains: false,
+  maintenanceMode: false,
+  googleDriveEnabled: false,
+  googleDriveScriptUrl: "",
+  googleDriveRootFolderId: "",
+  googleDriveRootFolderUrl: "",
 };
 
 export default function SettingsPage() {
+  const [settings, setSettings] = useState<SettingsPayload>(INITIAL_SETTINGS);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
-  const [platformName, setPlatformName] = useState("");
-  const [supportEmail, setSupportEmail] = useState("");
-  const [appBaseUrl, setAppBaseUrl] = useState("");
-  const [apiBaseUrl, setApiBaseUrl] = useState("");
-  const [goBaseUrl, setGoBaseUrl] = useState("");
-  const [defaultCampaignPreset, setDefaultCampaignPreset] = useState("landing");
-  const [defaultPageMode, setDefaultPageMode] = useState("hosted");
-  const [defaultUtmSource, setDefaultUtmSource] = useState("lumevio");
-  const [defaultUtmMedium, setDefaultUtmMedium] = useState("nfc");
-  const [trackIp, setTrackIp] = useState(true);
-  const [trackUserAgent, setTrackUserAgent] = useState(true);
-  const [trackReferer, setTrackReferer] = useState(true);
-  const [allowCustomDomains, setAllowCustomDomains] = useState(false);
-  const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [primaryColor, setPrimaryColor] = useState("#6d7cff");
-  const [googleDriveEnabled, setGoogleDriveEnabled] = useState(false);
-  const [googleAppsScriptUrl, setGoogleAppsScriptUrl] = useState("");
-  const [googleDriveRootFolderId, setGoogleDriveRootFolderId] = useState("");
-  const [googleDriveRootFolderUrl, setGoogleDriveRootFolderUrl] = useState("");
+  function setField<K extends keyof SettingsPayload>(
+    key: K,
+    value: SettingsPayload[K],
+  ) {
+    setSettings((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+    setSaved(false);
+  }
 
   async function loadSettings() {
     try {
       setLoading(true);
       setError(null);
-
-      const data = await apiClient<SettingsData>("/settings");
-
-      setGoogleDriveEnabled(!!data.googleDriveEnabled);
-      setGoogleAppsScriptUrl(data.googleAppsScriptUrl || "");
-      setGoogleDriveRootFolderId(data.googleDriveRootFolderId || "");
-      setGoogleDriveRootFolderUrl(data.googleDriveRootFolderUrl || "");
-      setPlatformName(data.platformName || "");
-      setSupportEmail(data.supportEmail || "");
-      setAppBaseUrl(data.appBaseUrl || "");
-      setApiBaseUrl(data.apiBaseUrl || "");
-      setGoBaseUrl(data.goBaseUrl || "");
-      setDefaultCampaignPreset(data.defaultCampaignPreset || "landing");
-      setDefaultPageMode(data.defaultPageMode || "hosted");
-      setDefaultUtmSource(data.defaultUtmSource || "lumevio");
-      setDefaultUtmMedium(data.defaultUtmMedium || "nfc");
-      setTrackIp(!!data.trackIp);
-      setTrackUserAgent(!!data.trackUserAgent);
-      setTrackReferer(!!data.trackReferer);
-      setAllowCustomDomains(!!data.allowCustomDomains);
-      setMaintenanceMode(!!data.maintenanceMode);
-      setPrimaryColor(data.primaryColor || "#6d7cff");
+      const data = await apiClient<SettingsPayload>("/settings");
+      setSettings({
+        ...INITIAL_SETTINGS,
+        ...data,
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Błąd ładowania ustawień");
+      setError(err instanceof Error ? err.message : "Nie udało się pobrać ustawień");
     } finally {
       setLoading(false);
     }
@@ -93,79 +89,90 @@ export default function SettingsPage() {
     e.preventDefault();
 
     try {
-      setSaving(true);
+      setSubmitting(true);
+      setSaved(false);
       setError(null);
-      setSuccess(null);
 
-      await apiClient("/settings", {
-        method: "PATCH",
-        body: JSON.stringify({
-          platformName,
-          supportEmail,
-          appBaseUrl,
-          apiBaseUrl,
-          goBaseUrl,
-          defaultCampaignPreset,
-          defaultPageMode,
-          defaultUtmSource,
-          defaultUtmMedium,
-          trackIp,
-          trackUserAgent,
-          trackReferer,
-          allowCustomDomains,
-          maintenanceMode,
-          primaryColor,
-          googleDriveEnabled,
-          googleAppsScriptUrl,
-          googleDriveRootFolderId,
-          googleDriveRootFolderUrl,
-        }),
+      const data = await apiClient<SettingsPayload>("/settings", {
+        method: "PUT",
+        body: JSON.stringify(settings),
       });
 
-      setSuccess("Ustawienia zostały zapisane");
+      setSettings({
+        ...INITIAL_SETTINGS,
+        ...data,
+      });
+      setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nie udało się zapisać ustawień");
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   }
 
   if (loading) {
-    return <main style={styles.page}>Ładowanie ustawień...</main>;
+    return <div style={styles.loading}>Ładowanie ustawień...</div>;
   }
 
   return (
     <main style={styles.page}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Ustawienia</h1>
-        <p style={styles.subtitle}>
-          Zarządzasz konfiguracją platformy, trackingiem, domenami i domyślnymi ustawieniami kampanii.
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit} style={styles.form}>
-        <section style={styles.card}>
+        <section style={styles.sectionCard}>
           <h2 style={styles.sectionTitle}>Platforma</h2>
-          <div style={styles.grid}>
-            <input value={platformName} onChange={(e) => setPlatformName(e.target.value)} placeholder="Platform name" style={styles.input} />
-            <input value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} placeholder="Support email" style={styles.input} />
-            <input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} placeholder="Primary color" style={styles.input} />
+          <div style={styles.grid3}>
+            <input
+              value={settings.platformName}
+              onChange={(e) => setField("platformName", e.target.value)}
+              placeholder="Nazwa platformy"
+              style={styles.input}
+            />
+            <input
+              value={settings.supportEmail}
+              onChange={(e) => setField("supportEmail", e.target.value)}
+              placeholder="E-mail supportu"
+              style={styles.input}
+            />
+            <input
+              value={settings.accentColor}
+              onChange={(e) => setField("accentColor", e.target.value)}
+              placeholder="#6d7cff"
+              style={styles.input}
+            />
           </div>
         </section>
 
-        <section style={styles.card}>
+        <section style={styles.sectionCard}>
           <h2 style={styles.sectionTitle}>Domeny i URL</h2>
-          <div style={styles.grid}>
-            <input value={appBaseUrl} onChange={(e) => setAppBaseUrl(e.target.value)} placeholder="App base URL" style={styles.input} />
-            <input value={apiBaseUrl} onChange={(e) => setApiBaseUrl(e.target.value)} placeholder="API base URL" style={styles.input} />
-            <input value={goBaseUrl} onChange={(e) => setGoBaseUrl(e.target.value)} placeholder="GO base URL" style={styles.input} />
+          <div style={styles.grid3}>
+            <input
+              value={settings.appBaseUrl}
+              onChange={(e) => setField("appBaseUrl", e.target.value)}
+              placeholder="App base URL"
+              style={styles.input}
+            />
+            <input
+              value={settings.apiBaseUrl}
+              onChange={(e) => setField("apiBaseUrl", e.target.value)}
+              placeholder="API base URL"
+              style={styles.input}
+            />
+            <input
+              value={settings.publicBaseUrl}
+              onChange={(e) => setField("publicBaseUrl", e.target.value)}
+              placeholder="Public base URL"
+              style={styles.input}
+            />
           </div>
         </section>
 
-        <section style={styles.card}>
+        <section style={styles.sectionCard}>
           <h2 style={styles.sectionTitle}>Domyślne kampanie</h2>
-          <div style={styles.grid}>
-            <select value={defaultCampaignPreset} onChange={(e) => setDefaultCampaignPreset(e.target.value)} style={styles.input}>
+          <div style={styles.grid4}>
+            <select
+              value={settings.defaultCampaignPageType}
+              onChange={(e) => setField("defaultCampaignPageType", e.target.value)}
+              style={styles.input}
+            >
               <option value="landing">Landing</option>
               <option value="contest">Contest</option>
               <option value="coupon">Coupon</option>
@@ -173,147 +180,218 @@ export default function SettingsPage() {
               <option value="lead_form">Lead Form</option>
             </select>
 
-            <select value={defaultPageMode} onChange={(e) => setDefaultPageMode(e.target.value)} style={styles.input}>
+            <select
+              value={settings.defaultCampaignPageMode}
+              onChange={(e) => setField("defaultCampaignPageMode", e.target.value)}
+              style={styles.input}
+            >
               <option value="hosted">Hosted</option>
-              <option value="external_redirect">External redirect</option>
+              <option value="external">External</option>
             </select>
 
-            <input value={defaultUtmSource} onChange={(e) => setDefaultUtmSource(e.target.value)} placeholder="Default UTM source" style={styles.input} />
-            <input value={defaultUtmMedium} onChange={(e) => setDefaultUtmMedium(e.target.value)} placeholder="Default UTM medium" style={styles.input} />
+            <input
+              value={settings.defaultCampaignDomain}
+              onChange={(e) => setField("defaultCampaignDomain", e.target.value)}
+              placeholder="Default campaign domain"
+              style={styles.input}
+            />
+
+            <input
+              value={settings.defaultTagPrefix}
+              onChange={(e) => setField("defaultTagPrefix", e.target.value)}
+              placeholder="Default tag prefix"
+              style={styles.input}
+            />
           </div>
         </section>
 
-        <section style={styles.card}>
+        <section style={styles.sectionCard}>
           <h2 style={styles.sectionTitle}>Tracking i funkcje</h2>
-          <div style={styles.switchGrid}>
-            <label style={styles.switchItem}>
-              <input type="checkbox" checked={trackIp} onChange={(e) => setTrackIp(e.target.checked)} />
+          <div style={styles.checkboxGrid}>
+            <label style={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={settings.trackIp}
+                onChange={(e) => setField("trackIp", e.target.checked)}
+              />
               <span>Zapisuj IP</span>
             </label>
 
-            <label style={styles.switchItem}>
-              <input type="checkbox" checked={trackUserAgent} onChange={(e) => setTrackUserAgent(e.target.checked)} />
+            <label style={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={settings.trackUserAgent}
+                onChange={(e) => setField("trackUserAgent", e.target.checked)}
+              />
               <span>Zapisuj User-Agent</span>
             </label>
 
-            <label style={styles.switchItem}>
-              <input type="checkbox" checked={trackReferer} onChange={(e) => setTrackReferer(e.target.checked)} />
+            <label style={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={settings.trackReferer}
+                onChange={(e) => setField("trackReferer", e.target.checked)}
+              />
               <span>Zapisuj Referer</span>
             </label>
 
-            <label style={styles.switchItem}>
-              <input type="checkbox" checked={allowCustomDomains} onChange={(e) => setAllowCustomDomains(e.target.checked)} />
+            <label style={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={settings.allowCustomDomains}
+                onChange={(e) => setField("allowCustomDomains", e.target.checked)}
+              />
               <span>Zezwól na custom domains</span>
             </label>
 
-            <label style={styles.switchItem}>
-              <input type="checkbox" checked={maintenanceMode} onChange={(e) => setMaintenanceMode(e.target.checked)} />
+            <label style={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={settings.maintenanceMode}
+                onChange={(e) => setField("maintenanceMode", e.target.checked)}
+              />
               <span>Maintenance mode</span>
             </label>
           </div>
         </section>
 
-        <section style={styles.card}>
-  <h2 style={styles.sectionTitle}>Google Drive</h2>
-  <div style={styles.switchGrid}>
-    <label style={styles.switchItem}>
-      <input
-        type="checkbox"
-        checked={googleDriveEnabled}
-        onChange={(e) => setGoogleDriveEnabled(e.target.checked)}
-      />
-      <span>Włącz integrację Google Drive</span>
-    </label>
-  </div>
+        <section style={styles.sectionCard}>
+          <h2 style={styles.sectionTitle}>Google Drive</h2>
+          <div style={styles.checkboxGridSingle}>
+            <label style={styles.checkboxCard}>
+              <input
+                type="checkbox"
+                checked={settings.googleDriveEnabled}
+                onChange={(e) => setField("googleDriveEnabled", e.target.checked)}
+              />
+              <span>Włącz integrację Google Drive</span>
+            </label>
+          </div>
 
-  <div style={{ ...styles.grid, marginTop: 16 }}>
-    <input
-      value={googleAppsScriptUrl}
-      onChange={(e) => setGoogleAppsScriptUrl(e.target.value)}
-      placeholder="Google Apps Script URL"
-      style={styles.input}
-    />
-    <input
-      value={googleDriveRootFolderId}
-      onChange={(e) => setGoogleDriveRootFolderId(e.target.value)}
-      placeholder="Google Drive root folder ID"
-      style={styles.input}
-    />
-    <input
-      value={googleDriveRootFolderUrl}
-      onChange={(e) => setGoogleDriveRootFolderUrl(e.target.value)}
-      placeholder="Google Drive root folder URL"
-      style={styles.input}
-    />
-  </div>
-</section>
+          <div style={styles.grid3}>
+            <input
+              value={settings.googleDriveScriptUrl}
+              onChange={(e) => setField("googleDriveScriptUrl", e.target.value)}
+              placeholder="Apps Script Web App URL"
+              style={styles.input}
+            />
+            <input
+              value={settings.googleDriveRootFolderId}
+              onChange={(e) => setField("googleDriveRootFolderId", e.target.value)}
+              placeholder="Google Drive root folder ID"
+              style={styles.input}
+            />
+            <input
+              value={settings.googleDriveRootFolderUrl}
+              onChange={(e) => setField("googleDriveRootFolderUrl", e.target.value)}
+              placeholder="Google Drive root folder URL"
+              style={styles.input}
+            />
+          </div>
+        </section>
 
         <div style={styles.actions}>
-          <button type="submit" disabled={saving} style={styles.button}>
-            {saving ? "Zapisywanie..." : "Zapisz ustawienia"}
+          <button type="submit" disabled={submitting} style={styles.saveButton}>
+            {submitting ? "Zapisywanie..." : "Zapisz ustawienia"}
           </button>
-        </div>
 
-        {success ? <p style={styles.success}>{success}</p> : null}
-        {error ? <p style={styles.error}>{error}</p> : null}
+          {saved ? <span style={styles.saved}>Ustawienia zapisane.</span> : null}
+          {error ? <span style={styles.error}>{error}</span> : null}
+        </div>
       </form>
     </main>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  page: { color: "#fff" },
-  header: { marginBottom: 24 },
-  title: { margin: 0, fontSize: 32, fontWeight: 800 },
-  subtitle: { marginTop: 8, color: "#9ea8d8" },
-  form: { display: "grid", gap: 24 },
-  card: {
-    background: "rgba(255,255,255,0.04)",
+const styles: Record<string, CSSProperties> = {
+  page: {
+    display: "grid",
+    gap: 24,
+  },
+  form: {
+    display: "grid",
+    gap: 22,
+  },
+  sectionCard: {
+    borderRadius: 28,
     border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: 20,
+    background:
+      "linear-gradient(180deg, rgba(10,14,35,0.92) 0%, rgba(6,10,26,0.96) 100%)",
     padding: 24,
-  },
-  sectionTitle: { margin: 0, marginBottom: 16, fontSize: 22, fontWeight: 700 },
-  grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 18,
+  },
+  sectionTitle: {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: 900,
+  },
+  grid3: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
     gap: 16,
   },
-  switchGrid: {
+  grid4: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
     gap: 16,
-  },
-  switchItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    minHeight: 48,
-    padding: "0 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "#0d1027",
   },
   input: {
     height: 48,
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "#0d1027",
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "rgba(8,12,30,0.82)",
     color: "#fff",
     padding: "0 14px",
     outline: "none",
   },
-  actions: { display: "flex", gap: 12 },
-  button: {
-    height: 46,
-    borderRadius: 14,
+  checkboxGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+    gap: 14,
+  },
+  checkboxGridSingle: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: 14,
+  },
+  checkboxCard: {
+    minHeight: 48,
+    borderRadius: 16,
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.03)",
+    padding: "0 14px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    color: "#fff",
+    fontWeight: 600,
+  },
+  actions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  saveButton: {
+    minHeight: 48,
+    borderRadius: 16,
     border: "none",
     padding: "0 18px",
-    fontWeight: 700,
+    fontWeight: 800,
     cursor: "pointer",
-    background: "#6d7cff",
+    color: "#08101F",
+    background: "linear-gradient(90deg, #E45CFF 0%, #8D8CFF 46%, #42D7FF 100%)",
+  },
+  saved: {
+    color: "#8BE7AE",
+    fontWeight: 700,
+  },
+  error: {
+    color: "#FF9D9D",
+    fontWeight: 700,
+  },
+  loading: {
     color: "#fff",
   },
-  success: { margin: 0, color: "#9affb4" },
-  error: { margin: 0, color: "#ff8f8f" },
 };

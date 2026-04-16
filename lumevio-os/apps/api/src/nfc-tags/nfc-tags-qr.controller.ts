@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res } from "@nestjs/common";
+import { Controller, Get, Param, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
 import { QrService } from "../common/qr/qr.service";
 import { NfcTagsService } from "./nfc-tags.service";
@@ -11,23 +11,35 @@ export class NfcTagsQrController {
   ) {}
 
   @Get(":id/qr")
-  async getQr(@Param("id") id: string, @Res() res: Response) {
+  async getQr(
+    @Param("id") id: string,
+    @Query("format") format: "png" | "svg" | "data-url" | undefined,
+    @Res() res: Response,
+  ) {
     const tag = await this.nfcTagsService.findById(id);
     const publicUrl = this.nfcTagsService.getPublicUrl(tag);
 
-    const generated = await this.qrService.generate(publicUrl, {
-      format: "png",
+    const qr = await this.qrService.generate(publicUrl, {
+      format: format === "svg" ? "svg" : "png",
       size: 900,
       margin: 2,
     });
 
-    res.setHeader("Content-Type", generated.contentType || "image/png");
+    if (qr.extension === "svg") {
+      res.setHeader("Content-Type", qr.contentType || "image/svg+xml");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="nfc-tag-${tag.uid || tag.id}.svg"`,
+      );
+      return res.send(qr.payload);
+    }
+
+    res.setHeader("Content-Type", qr.contentType || "image/png");
     res.setHeader(
       "Content-Disposition",
-      `inline; filename="nfc-tag-${tag.uid || tag.id}.${generated.extension || "png"}"`,
+      `inline; filename="nfc-tag-${tag.uid || tag.id}.png"`,
     );
-
-    res.send(generated.payload);
+    return res.send(qr.payload);
   }
 
   @Get(":id/qr/meta")

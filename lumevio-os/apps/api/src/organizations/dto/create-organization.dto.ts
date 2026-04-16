@@ -1,13 +1,36 @@
-import { IsOptional, IsString, MaxLength, MinLength } from "class-validator";
-
 export class CreateOrganizationDto {
-  @IsString()
-  @MinLength(2)
-  @MaxLength(120)
   name!: string;
+  slug?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
+  legalName?: string;
+  type?: string;
+  status?: string;
   industry?: string;
+  plan?: string;
+
+  nip?: string;
+  regon?: string;
+  krs?: string;
+  vatEu?: string;
+
+  email?: string;
+  phone?: string;
+  website?: string;
+
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactPosition?: string;
+
+  street?: string;
+  buildingNo?: string;
+  unitNo?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+
+  notes?: string;
+
+  rootFolderId?: string;
+  rootFolderUrl?: string;
+  syncEnabled?: boolean;
 }

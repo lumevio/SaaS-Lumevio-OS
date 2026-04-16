@@ -7,81 +7,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum RoleKey {
-  OWNER
-  ADMIN
-  CLIENT_ADMIN
-  MANAGER
-  ANALYST
-  FIELD_OPERATOR
-  VIEWER
-}
-
 model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  passwordHash    String
-  firstName       String?
-  lastName        String?
-  isPlatformAdmin Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  organizationRoles UserOrganizationRole[]
+  id                String                 @id @default(cuid())
+  email             String                 @unique
+  passwordHash      String
+  firstName         String?
+  lastName          String?
+  isPlatformAdmin   Boolean                @default(false)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   auditLogs         AuditLog[]
+  organizationRoles UserOrganizationRole[]
 
   @@index([email])
 }
 
 model Role {
-  id        String   @id @default(cuid())
-  key       RoleKey  @unique
-  name      String
-  createdAt DateTime @default(now())
-
+  id                String                 @id @default(cuid())
+  key               RoleKey                @unique
+  name              String
+  createdAt         DateTime               @default(now())
   organizationRoles UserOrganizationRole[]
 }
 
 model Organization {
-  id            String    @id @default(cuid())
-  name          String
-  slug          String    @unique
-  industry      String?
-  plan          String    @default("STARTER")
-  status        String    @default("ACTIVE")
-  storesCount   Int       @default(0)
-  rootFolderId  String?
-  rootFolderUrl String?
-  syncEnabled   Boolean   @default(true)
-  lastSyncAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  stores        Store[]
-  campaigns     Campaign[]
-  documents     Document[]
-  driveFiles    DriveFile[]
-  userRoles     UserOrganizationRole[]
-  auditLogs     AuditLog[]
-  redirectLinks RedirectLink[]
-  events        Event[]
-  nfcTags       NfcTag[]
-  pages         CampaignPage[]
-
-  @@index([slug])
-  @@index([status])
+  id               String                 @id @default(cuid())
+  name             String
+  slug             String                 @unique
+  industry         String?
+  plan             String?                @default("ENTERPRISE")
+  status           String?                @default("ACTIVE")
+  legalName        String?
+  type             String?
+  nip              String?
+  regon            String?
+  krs              String?
+  vatEu            String?
+  email            String?
+  phone            String?
+  website          String?
+  contactFirstName String?
+  contactLastName  String?
+  contactPosition  String?
+  street           String?
+  buildingNo       String?
+  unitNo           String?
+  postalCode       String?
+  city             String?
+  country          String?
+  notes            String?
+  rootFolderId     String?
+  rootFolderUrl    String?
+  syncEnabled      Boolean                @default(true)
+  lastSyncAt       DateTime?
+  storesCount      Int                    @default(0)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  auditLogs        AuditLog[]
+  campaigns        Campaign[]
+  pages            CampaignPage[]
+  documents        Document[]
+  driveFiles       DriveFile[]
+  events           Event[]
+  nfcTags          NfcTag[]
+  NfcWriterJob     NfcWriterJob[]
+  redirectLinks    RedirectLink[]
+  stores           Store[]
+  userRoles        UserOrganizationRole[]
 }
 
 model UserOrganizationRole {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   userId         String
   organizationId String
   roleId         String
-  createdAt      DateTime @default(now())
-
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, organizationId, roleId])
   @@index([userId])
@@ -90,21 +93,22 @@ model UserOrganizationRole {
 }
 
 model Store {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   organizationId String
   name           String
-  code           String?  @unique
+  code           String?        @unique
   address        String?
   city           String?
   country        String?
   zone           String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaigns    Campaign[]
-  nfcTags      NfcTag[]
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  campaigns      Campaign[]
+  nfcTags        NfcTag[]
+  NfcWriterJob   NfcWriterJob[]
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  StoreZone      StoreZone[]
 
   @@index([organizationId])
   @@index([code])
@@ -112,27 +116,27 @@ model Store {
 }
 
 model Campaign {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   organizationId String
   storeId        String?
   name           String
-  slug           String   @unique
+  slug           String         @unique
   type           String
   objective      String?
-  status         String   @default("DRAFT")
-  interactions   Int      @default(0)
-  leads          Int      @default(0)
-  conversionRate Float    @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  store         Store?         @relation(fields: [storeId], references: [id], onDelete: SetNull)
-  documents     Document[]
-  redirectLinks RedirectLink[]
-  events        Event[]
-  nfcTags       NfcTag[]
-  pages         CampaignPage[]
+  status         String         @default("DRAFT")
+  interactions   Int            @default(0)
+  leads          Int            @default(0)
+  conversionRate Float          @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store          Store?         @relation(fields: [storeId], references: [id])
+  pages          CampaignPage[]
+  documents      Document[]
+  events         Event[]
+  nfcTags        NfcTag[]
+  NfcWriterJob   NfcWriterJob[]
+  redirectLinks  RedirectLink[]
 
   @@index([organizationId])
   @@index([storeId])
@@ -141,18 +145,17 @@ model Campaign {
 }
 
 model Document {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   campaignId     String?
   name           String
   documentType   String
   fileUrl        String?
   driveFileId    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign     Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  campaign       Campaign?    @relation(fields: [campaignId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([campaignId])
@@ -160,9 +163,9 @@ model Document {
 }
 
 model DriveFile {
-  id                String    @id @default(cuid())
+  id                String       @id @default(cuid())
   organizationId    String
-  driveFileId       String    @unique
+  driveFileId       String       @unique
   folderId          String?
   name              String
   mimeType          String?
@@ -170,12 +173,11 @@ model DriveFile {
   size              Int?
   modifiedTime      DateTime?
   lastSyncedAt      DateTime?
-  isFolder          Boolean   @default(false)
+  isFolder          Boolean      @default(false)
   parentDriveFileId String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([driveFileId])
@@ -183,23 +185,23 @@ model DriveFile {
 }
 
 model RedirectLink {
-  id             String    @id @default(cuid())
+  id             String         @id @default(cuid())
   organizationId String
   campaignId     String?
-  slug           String    @unique
+  slug           String         @unique
   destinationUrl String
   fallbackUrl    String?
   title          String?
-  isActive       Boolean   @default(true)
+  isActive       Boolean        @default(true)
   validFrom      DateTime?
   validTo        DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign     Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  events       Event[]
-  nfcTags      NfcTag[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  events         Event[]
+  nfcTags        NfcTag[]
+  NfcWriterJob   NfcWriterJob[]
+  campaign       Campaign?      @relation(fields: [campaignId], references: [id])
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([campaignId])
@@ -208,25 +210,25 @@ model RedirectLink {
 }
 
 model NfcTag {
-  id             String    @id @default(cuid())
+  id             String          @id @default(cuid())
   organizationId String
   storeId        String?
   campaignId     String?
   redirectLinkId String?
-  uid            String    @unique
+  uid            String          @unique
   serialNumber   String?
   tagType        String?
   label          String?
-  status         String    @default("ACTIVE")
+  status         String          @default("ACTIVE")
   assignedAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  store        Store?        @relation(fields: [storeId], references: [id], onDelete: SetNull)
-  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  redirectLink RedirectLink? @relation(fields: [redirectLinkId], references: [id], onDelete: SetNull)
-  events       Event[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  events         Event[]
+  campaign       Campaign?       @relation(fields: [campaignId], references: [id])
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  redirectLink   RedirectLink?   @relation(fields: [redirectLinkId], references: [id])
+  store          Store?          @relation(fields: [storeId], references: [id])
+  StoreShelfSlot StoreShelfSlot?
 
   @@index([organizationId])
   @@index([storeId])
@@ -237,23 +239,22 @@ model NfcTag {
 }
 
 model CampaignPage {
-  id             String    @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   campaignId     String
-  slug           String    @unique
+  slug           String       @unique
   title          String
-  templateType   String    @default("landing")
-  status         String    @default("draft")
-  pageMode       String    @default("hosted")
+  templateType   String       @default("landing")
+  status         String       @default("draft")
+  pageMode       String       @default("hosted")
   externalUrl    String?
   customDomain   String?
   jsonConfig     Json?
   publishedAt    DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  campaign       Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([campaignId])
@@ -263,7 +264,7 @@ model CampaignPage {
 }
 
 model Event {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   type           String
   organizationId String
   campaignId     String?
@@ -271,12 +272,11 @@ model Event {
   nfcTagId       String?
   sessionId      String?
   payload        Json?
-  createdAt      DateTime @default(now())
-
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  campaign     Campaign?     @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  redirectLink RedirectLink? @relation(fields: [redirectLinkId], references: [id], onDelete: SetNull)
-  nfcTag       NfcTag?       @relation(fields: [nfcTagId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id])
+  nfcTag         NfcTag?       @relation(fields: [nfcTagId], references: [id])
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  redirectLink   RedirectLink? @relation(fields: [redirectLinkId], references: [id])
 
   @@index([organizationId])
   @@index([campaignId])
@@ -288,17 +288,16 @@ model Event {
 }
 
 model AuditLog {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   userId         String?
   organizationId String?
   action         String
   entityType     String
   entityId       String?
   payloadJson    Json?
-  createdAt      DateTime @default(now())
-
-  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User?         @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([organizationId])
@@ -308,28 +307,121 @@ model AuditLog {
 }
 
 model PlatformSetting {
-  id                    String  @id @default(cuid())
-  platformName          String  @default("LUMEVIO OS")
-  supportEmail          String? @default("admin@lumevio.pl")
-  appBaseUrl            String? @default("http://127.0.0.1:3000")
-  apiBaseUrl            String? @default("http://127.0.0.1:3001")
-  goBaseUrl             String? @default("http://127.0.0.1:3002")
-  defaultCampaignPreset String  @default("landing")
-  defaultPageMode       String  @default("hosted")
-  defaultUtmSource      String? @default("lumevio")
-  defaultUtmMedium      String? @default("nfc")
-  trackIp               Boolean @default(true)
-  trackUserAgent        Boolean @default(true)
-  trackReferer          Boolean @default(true)
-  allowCustomDomains    Boolean @default(false)
-  maintenanceMode       Boolean @default(false)
-  primaryColor          String? @default("#6d7cff")
-
-  googleDriveEnabled       Boolean @default(false)
+  id                       String   @id @default(cuid())
+  platformName             String   @default("LUMEVIO OS")
+  supportEmail             String?  @default("admin@lumevio.pl")
+  appBaseUrl               String?  @default("http://127.0.0.1:3000")
+  apiBaseUrl               String?  @default("http://127.0.0.1:3001")
+  goBaseUrl                String?  @default("http://127.0.0.1:3002")
+  defaultCampaignPreset    String   @default("landing")
+  defaultPageMode          String   @default("hosted")
+  defaultUtmSource         String?  @default("lumevio")
+  defaultUtmMedium         String?  @default("nfc")
+  trackIp                  Boolean  @default(true)
+  trackUserAgent           Boolean  @default(true)
+  trackReferer             Boolean  @default(true)
+  allowCustomDomains       Boolean  @default(false)
+  maintenanceMode          Boolean  @default(false)
+  primaryColor             String?  @default("#6d7cff")
+  googleDriveEnabled       Boolean  @default(false)
   googleAppsScriptUrl      String?
   googleDriveRootFolderId  String?
   googleDriveRootFolderUrl String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model NfcWriterJob {
+  id             String        @id
+  organizationId String
+  storeId        String?
+  campaignId     String?
+  redirectLinkId String?
+  label          String?
+  serialNumber   String?
+  tagType        String?
+  uid            String?
+  status         String        @default("PENDING")
+  errorMessage   String?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime
+  Campaign       Campaign?     @relation(fields: [campaignId], references: [id])
+  Organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  RedirectLink   RedirectLink? @relation(fields: [redirectLinkId], references: [id])
+  Store          Store?        @relation(fields: [storeId], references: [id])
+
+  @@index([campaignId])
+  @@index([organizationId, createdAt])
+  @@index([redirectLinkId])
+  @@index([status])
+  @@index([storeId])
+}
+
+model StoreAisle {
+  id         String       @id
+  name       String
+  zoneId     String
+  createdAt  DateTime     @default(now())
+  StoreZone  StoreZone    @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  StoreShelf StoreShelf[]
+
+  @@index([zoneId])
+}
+
+model StoreShelf {
+  id            String          @id
+  name          String
+  aisleId       String
+  createdAt     DateTime        @default(now())
+  StoreAisle    StoreAisle      @relation(fields: [aisleId], references: [id], onDelete: Cascade)
+  StoreShelfRow StoreShelfRow[]
+
+  @@index([aisleId])
+}
+
+model StoreShelfRow {
+  id             String           @id
+  name           String
+  shelfId        String
+  createdAt      DateTime         @default(now())
+  StoreShelf     StoreShelf       @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  StoreShelfSlot StoreShelfSlot[]
+
+  @@index([shelfId])
+}
+
+model StoreShelfSlot {
+  id            String        @id
+  name          String
+  rowId         String
+  nfcTagId      String?       @unique
+  productName   String?
+  productSku    String?
+  createdAt     DateTime      @default(now())
+  NfcTag        NfcTag?       @relation(fields: [nfcTagId], references: [id])
+  StoreShelfRow StoreShelfRow @relation(fields: [rowId], references: [id], onDelete: Cascade)
+
+  @@index([rowId])
+}
+
+model StoreZone {
+  id         String       @id
+  name       String
+  storeId    String
+  createdAt  DateTime     @default(now())
+  StoreAisle StoreAisle[]
+  Store      Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+enum RoleKey {
+  OWNER
+  ADMIN
+  CLIENT_ADMIN
+  MANAGER
+  ANALYST
+  FIELD_OPERATOR
+  VIEWER
 }

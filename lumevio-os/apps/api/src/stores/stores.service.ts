@@ -1,7 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateStoreDto } from './dto/create-store.dto';
-import { UpdateStoreDto } from './dto/update-store.dto';
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { CreateStoreDto } from "./dto/create-store.dto";
+import { UpdateStoreDto } from "./dto/update-store.dto";
 
 @Injectable()
 export class StoresService {
@@ -11,44 +11,58 @@ export class StoresService {
     return this.prisma.store.findMany({
       include: {
         organization: true,
-        campaigns: true,
-        nfcTags: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
   }
 
   async findOne(id: string) {
-    const item = await this.prisma.store.findUnique({
+    const store = await this.prisma.store.findUnique({
       where: { id },
       include: {
         organization: true,
-        campaigns: true,
-        nfcTags: true,
       },
     });
 
-    if (!item) {
-      throw new NotFoundException('Store not found');
+    if (!store) {
+      throw new NotFoundException("Store not found");
     }
 
-    return item;
+    return store;
   }
 
   async create(dto: CreateStoreDto) {
+    if (!dto.organizationId) {
+      throw new BadRequestException("organizationId is required");
+    }
+
+    if (!dto.name || !dto.name.trim()) {
+      throw new BadRequestException("name is required");
+    }
+
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: dto.organizationId },
+    });
+
+    if (!organization) {
+      throw new NotFoundException("Organization not found");
+    }
+
     return this.prisma.store.create({
       data: {
         organization: {
-          connect: { id: dto.organizationId },
+          connect: {
+            id: dto.organizationId,
+          },
         },
-        name: dto.name,
-        code: dto.code,
-        address: dto.address,
-        city: dto.city,
-        country: dto.country,
-        zone: dto.zone,
+        name: dto.name.trim(),
+        code: dto.code?.trim() || null,
+        address: dto.address?.trim() || null,
+        city: dto.city?.trim() || null,
+        country: dto.country?.trim() || null,
+        zone: dto.zone?.trim() || null,
         isActive: dto.isActive ?? true,
       },
       include: {
@@ -60,21 +74,35 @@ export class StoresService {
   async update(id: string, dto: UpdateStoreDto) {
     await this.findOne(id);
 
+    if (dto.organizationId) {
+      const organization = await this.prisma.organization.findUnique({
+        where: { id: dto.organizationId },
+      });
+
+      if (!organization) {
+        throw new NotFoundException("Organization not found");
+      }
+    }
+
     return this.prisma.store.update({
       where: { id },
       data: {
-        name: dto.name,
-        code: dto.code,
-        address: dto.address,
-        city: dto.city,
-        country: dto.country,
-        zone: dto.zone,
-        isActive: dto.isActive,
-        organization: dto.organizationId
+        ...(dto.organizationId
           ? {
-              connect: { id: dto.organizationId },
+              organization: {
+                connect: {
+                  id: dto.organizationId,
+                },
+              },
             }
-          : undefined,
+          : {}),
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.code !== undefined ? { code: dto.code?.trim() || null } : {}),
+        ...(dto.address !== undefined ? { address: dto.address?.trim() || null } : {}),
+        ...(dto.city !== undefined ? { city: dto.city?.trim() || null } : {}),
+        ...(dto.country !== undefined ? { country: dto.country?.trim() || null } : {}),
+        ...(dto.zone !== undefined ? { zone: dto.zone?.trim() || null } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       },
       include: {
         organization: true,

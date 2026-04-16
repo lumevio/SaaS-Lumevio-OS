@@ -1,10 +1,11 @@
 import { Module } from "@nestjs/common";
-import { DriveModule } from "../drive/drive.module";
 import { OrganizationsController } from "./organizations.controller";
 import { OrganizationsService } from "./organizations.service";
+import { PrismaModule } from "../prisma/prisma.module";
+import { GoogleDriveModule } from "../google-drive/google-drive.module";
 
 @Module({
-  imports: [DriveModule],
+  imports: [PrismaModule, GoogleDriveModule],
   controllers: [OrganizationsController],
   providers: [OrganizationsService],
   exports: [OrganizationsService],
